@@ -13,7 +13,7 @@ const educationHeading = /^(?:education(?:al background)?|教育(?:经历|背景
 const extraSectionHeading = /^(?:internship(?: experience)?|internships|实习经历|实习经验|project(?: experience|s)?|项目经历|volunteer(?: experience|ing)?|志愿(?:者)?经历|extracurricular(?: activities| experience)?|课外活动)\s*[:：]?$/i;
 const schoolPattern = /university|college|institute|school|academy|大学|学院|学校/i;
 const degreePattern = /master|bachelor|doctor|ph\.?d|ll\.?m|ll\.?b|degree|diploma|硕士|本科|博士|学士|法学|专业/i;
-const textSectionHeading = /^(?:extra[ -]?curricular(?: activities| experience)?|skills\s+(?:and|&)\s+awards)\s*[:：]?$/i;
+const textSectionHeading = /^(?:extra[ -]?curricular(?: activities| experience)?|skills\s+(?:and|&)\s+awards|professional summary|summary|profile|objective|career objective|publications?|research|awards?(?:\s+(?:and|&)\s+honou?rs?)?|honou?rs?(?:\s+(?:and|&)\s+awards?)?|achievements?|interests?|activities|leadership|community involvement|professional affiliations?|memberships?|references?|technical skills|core competencies)\s*[:：]?$/i;
 const skillsHeading = /^skills(?:\s*(?:and|&)\s*(?:technologies|tools|competencies|awards))?\s*[:：]?$/i;
 function isTextSectionHeading(line){return skillsHeading.test(line)||textSectionHeading.test(line)||(/^[A-Z][A-Z &/\-]{2,48}$/.test(line)&&!workHeading.test(line)&&!educationHeading.test(line)&&!endHeading.test(line));}
 
@@ -22,7 +22,7 @@ function parseEducation(lines){
   if(start<0)return [];
   const result=[];let current=null;
   for(const line of lines.slice(start+1)){
-    if(workHeading.test(line)||(!educationHeading.test(line)&&endHeading.test(line)))break;
+    if(workHeading.test(line)||extraSectionHeading.test(line)||(isTextSectionHeading(line)&&!schoolPattern.test(line)&&!degreePattern.test(line))||(!educationHeading.test(line)&&endHeading.test(line)))break;
     const dates=line.match(datePattern)?.[0] || '';
     const remaining=line.replace(datePattern,'').replace(/^[\s|,;]+|[\s|,;]+$/g,'').trim();
     if(schoolPattern.test(remaining)){
@@ -43,7 +43,7 @@ function parseCertificateSections(lines){
   for(let i=0;i<lines.length;i++){
     if(!heading.test(lines[i]))continue;
     const title=lines[i],content=[];
-    while(i+1<lines.length && !heading.test(lines[i+1]) && !workHeading.test(lines[i+1]) && !educationHeading.test(lines[i+1]) && !extraSectionHeading.test(lines[i+1]) && !/^(?:skills|技能)/i.test(lines[i+1]))content.push(lines[++i]);
+    while(i+1<lines.length && !heading.test(lines[i+1]) && !workHeading.test(lines[i+1]) && !educationHeading.test(lines[i+1]) && !extraSectionHeading.test(lines[i+1]) && !isTextSectionHeading(lines[i+1]) && !/^(?:skills|技能)/i.test(lines[i+1]))content.push(lines[++i]);
     if(content.length)result.push({title,content:content.join('\n')});
   }
   return result;
@@ -56,7 +56,7 @@ export function parseResume(text) {
   const phone=String(text).match(/(?:\+\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?){2,4}\d{2,4}/)?.[0]?.trim() || '';
   const first=lines.slice(0,5).find(l=>!workHeading.test(l)&&!endHeading.test(l)&&!datePattern.test(l)) || '';
   const name=first.split(/\s{2,}|\s*\|\s*|(?=\+\d)|(?=\b\d{5,})/)[0].replace(email,'').trim();
-  const firstHeading=lines.findIndex(line=>workHeading.test(line)||educationHeading.test(line)||endHeading.test(line)||extraSectionHeading.test(line));
+  const firstHeading=lines.findIndex(line=>workHeading.test(line)||educationHeading.test(line)||endHeading.test(line)||extraSectionHeading.test(line)||textSectionHeading.test(line));
   const personalLines=lines.slice(0,firstHeading<0?0:firstHeading);
   const other=personalLines.map(line=>{
     let rest=line===first?line.replace(name,''):line;
@@ -70,7 +70,7 @@ export function parseResume(text) {
     // PROJECTS is often all caps, which also matches the fallback text-heading
     // rule. Prefer its explicit structured-section match to avoid importing it
     // a second time as an unformatted text block.
-    const textHeading=!extraSectionHeading.test(line)&&(skillsHeading.test(line)||(seenSection&&isTextSectionHeading(line)));
+    const textHeading=!extraSectionHeading.test(line)&&(skillsHeading.test(line)||textSectionHeading.test(line)||(seenSection&&isTextSectionHeading(line)));
     const custom=(extraSectionHeading.test(line)||textHeading)?line.replace(/[:：]\s*$/,''):null;
     if(textHeading){contentSection={name:custom,content:[]};contentSections.push(contentSection);}
     else if(workHeading.test(line)||educationHeading.test(line)||endHeading.test(line)||extraSectionHeading.test(line))contentSection=null;

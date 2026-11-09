@@ -3,7 +3,7 @@ import { interfaceLanguage, translateInterface, translateText } from './interfac
 import { validState } from './validation.js';
 import { CloudSync } from './cloud.js';
 import { SEED } from './seed.js';
-import { parseResume } from './parser.js?v=20261109-1';
+import { parseResume } from './parser.js?v=20261109-2';
 import { extractPdf } from './pdf-import.js?v=20261109-1';
 import { SECTIONS, orderedKeys, migrateState } from './model.js';
 
@@ -65,7 +65,7 @@ function ensurePersonalLibraries(){
  }
 }
 ensurePersonalLibraries();
-const ui = { route:'editor', tab:'library', category:'all', search:'', openCards:new Set(['qingxian','enniu']), fits:true, font:13.4, filterDirty:false, alphabetical:false };
+const ui = { route:'editor', tab:'library', category:'all', search:'', openCards:new Set(['qingxian','enniu']), fits:true, font:13.4, filterDirty:false, alphabetical:false, previewTarget:null };
 const app = document.querySelector('#app');
 const modal = document.querySelector('#modal');
 document.addEventListener('click',event=>{
@@ -123,17 +123,45 @@ function render() {
     <div class="workspace">${ui.route==='editor'?editorView():ui.route==='library'?libraryView():ui.route==='personal'||ui.route==='education'?personalView(ui.route):ui.route==='other'?otherView():categoriesView()}</div></main></div>`;
   if (ui.route === 'editor') {
     refreshPreview();
-    document.querySelector('.experience-list').scrollTop = scroll.library;
+    if(document.querySelector('.experience-list'))document.querySelector('.experience-list').scrollTop = scroll.library;
     document.querySelector('.paper-area').scrollTop = scroll.paper;
+    highlightPreviewTarget();
   }
   translateInterface(app);
 }
 function editorView() {
   return `<div class="page-heading"><div><div class="eyebrow">RESUME STUDIO</div><h1>制作你的英文简历</h1><p>从经历库逐条选择，组合适合这次投递的简历。</p></div><div class="heading-actions"><button data-action="import">${icon('upload')}导入简历</button><button class="primary" data-action="export">${icon('download')}导出简历</button></div></div>
   <div class="draft-bar"><div class="draft-picker"><div class="draft-picker-row"><label for="career-select">岗位</label><select id="career-select" aria-label="当前职业">${state.careers.map(c=>`<option value="${esc(c.id)}" ${c.id===state.activeCareer?'selected':''}>${esc(c.name)}</option>`).join('')}</select><details class="picker-menu"><summary title="${interfaceLanguage()==='en'?'Career actions':'岗位操作'}" aria-label="${interfaceLanguage()==='en'?'Career actions':'岗位操作'}">${icon('settings')}</summary><div class="picker-menu-options"><button type="button" data-action="new-career">${icon('plus')}新增岗位</button><button type="button" data-action="rename-career">${icon('edit')}修改职业名称</button><button type="button" data-action="copy-career-data">${icon('copy')}从其他岗位导入</button><button type="button" class="danger" data-action="delete-career">删除岗位</button></div></details></div><div class="draft-picker-row"><label for="draft-select">简历</label><select id="draft-select" aria-label="当前简历">${langData().drafts.map(d=>`<option value="${esc(d.id)}" ${d.id===draft().id?'selected':''}>${esc(d.name)}</option>`).join('')}</select><details class="picker-menu"><summary title="${interfaceLanguage()==='en'?'Resume actions':'简历操作'}" aria-label="${interfaceLanguage()==='en'?'Resume actions':'简历操作'}">${icon('settings')}</summary><div class="picker-menu-options"><button type="button" data-action="new-draft">${icon('plus')}新增简历</button><button type="button" data-action="rename-draft">${icon('edit')}修改简历名称</button><button type="button" data-action="choose-personal">${icon('file')}选择个人与教育资料</button><button type="button" data-action="copy-draft">${icon('copy')}另存一份</button>${langData().drafts.length>1?'<button type="button" class="danger" data-action="delete-draft">删除</button>':''}</div></details></div></div></div>
-  <div class="editor-grid"><section class="selection-panel" aria-label="选择经历"><div class="selection-top"><div class="panel-tabs"><button data-action="tab" data-id="library" class="${ui.tab==='library'?'active':''}">选择经历 <span>${allBullets().length}</span></button><button data-action="tab" data-id="selected" class="${ui.tab==='selected'?'active':''}">已选内容 <span>${selectedCount()}</span></button></div>${ui.tab==='library'?`${searchField()}${categoriesFilter()}`:'<p class="independent-note">勾选或取消勾选内容，并用上下箭头调整经历和要点顺序。</p>'}</div>
-  <div class="selection-summary"><span>${ui.tab==='library'?'勾选条目，即可加入右侧简历':`已选择 ${selectedCount()} 条经历要点`}</span><button class="quiet small" data-action="${ui.tab==='library'?'import':'clear-selection'}">${ui.tab==='library'?'导入经历':'清空选择'}</button></div><div class="experience-list" id="selection-list">${ui.tab==='library'?selectionList():selectedList()}</div></section>
-  <section class="preview-panel" aria-label="简历预览"><div class="preview-toolbar"><strong>简历预览</strong><div class="preview-tools"><button class="page-badge" id="page-badge" data-action="layout" aria-label="打开排版设置">正在排版</button><button class="small preview-sort-button" data-action="preview-reorder" aria-label="在预览中调整顺序">${icon('up')}调整顺序</button></div></div><div class="paper-area"><div class="paper-wrap preview-interactive" id="paper-wrap" data-action="preview-reorder" role="button" tabindex="0" aria-label="点击预览中的内容进行编辑" aria-describedby="preview-instruction" aria-haspopup="dialog"><article id="resume-preview" class="resume-page"></article><span class="preview-reorder-hint" aria-hidden="true">${icon('up')}点击编辑</span></div><div class="preview-caption"><span id="preview-instruction">点击预览中的内容进行编辑；在“已选内容”中勾选并调整顺序</span><span>与原简历相同的单栏版式 · 8.5 × 11 英寸</span></div></div></section></div>`;
+  <div class="editor-grid"><section class="selection-panel" aria-label="选择经历">${ui.previewTarget?previewEditor():`<div class="selection-top"><div class="panel-tabs"><button data-action="tab" data-id="library" class="${ui.tab==='library'?'active':''}">选择经历 <span>${allBullets().length}</span></button><button data-action="tab" data-id="selected" class="${ui.tab==='selected'?'active':''}">已选内容 <span>${selectedCount()}</span></button></div>${ui.tab==='library'?`${searchField()}${categoriesFilter()}`:'<p class="independent-note">勾选或取消勾选内容，并用上下箭头调整经历和要点顺序。</p>'}</div>
+  <div class="selection-summary"><span>${ui.tab==='library'?'勾选条目，即可加入右侧简历':`已选择 ${selectedCount()} 条经历要点`}</span><button class="quiet small" data-action="${ui.tab==='library'?'import':'clear-selection'}">${ui.tab==='library'?'导入经历':'清空选择'}</button></div><div class="experience-list" id="selection-list">${ui.tab==='library'?selectionList():selectedList()}</div>`}</section>
+  <div class="preview-move" aria-label="Move selected content"><span>Move</span><button type="button" data-action="preview-move" data-direction="-1" aria-label="Move selected item up" ${!['section','experience','bullet','education'].includes(ui.previewTarget?.kind)?'disabled':''}>↑</button><button type="button" data-action="preview-move" data-direction="1" aria-label="Move selected item down" ${!['section','experience','bullet','education'].includes(ui.previewTarget?.kind)?'disabled':''}>↓</button></div>
+  <section class="preview-panel" aria-label="简历预览"><div class="preview-toolbar"><strong>简历预览</strong><div class="preview-tools"><button class="page-badge" id="page-badge" data-action="layout" aria-label="打开排版设置">正在排版</button><button class="small" data-action="preview-sections">Reorder &amp; Edit</button></div></div><div class="paper-area"><div class="paper-wrap preview-interactive" id="paper-wrap" data-action="preview-reorder" role="button" tabindex="0" aria-label="点击预览中的内容进行编辑" aria-describedby="preview-instruction" aria-haspopup="dialog"><article id="resume-preview" class="resume-page"></article></div><div class="preview-caption"><span id="preview-instruction">点击预览中的内容进行编辑；在“已选内容”中勾选并调整顺序</span><span>与原简历相同的单栏版式 · 8.5 × 11 英寸</span></div></div></section></div>`;
+}
+function previewEditor(){
+  const t=ui.previewTarget,d=draft(),sections=[{id:'education',name:'Education'},{id:'experience',name:'Work experience'},{id:'certificates',name:'Certificates and languages'},...(langData().customSections||[])];
+  const sectionList=()=>`<p class="muted">Select a section to edit it, or show and hide it in this resume.</p>${orderedKeys(d.sectionOrder,sections.map(s=>s.id)).map(id=>{const s=sections.find(x=>x.id===id);return `<div class="preview-section-row"><button type="button" class="preview-section-link" data-action="preview-select-section" data-id="${esc(id)}">${esc(s.name)}</button><button type="button" class="small" data-action="preview-toggle-section" data-id="${esc(id)}">${(d.hiddenSections||[]).includes(id)?'Show':'Hide'}</button></div>`;}).join('')}<button type="button" data-action="new-other">Add section</button>`;
+  let title='Sections',body=sectionList();
+  if(t.kind==='bullet'){const {b,e}=findBullet(t.id);if(!b)return `<div class="preview-editor"><button data-action="preview-close">Back</button>${sectionList()}</div>`;title='Edit item';body=`<p class="muted">${esc(e.role)} · Changes apply to this resume.</p>${field('Item','text',d.overrides[t.id]??b.text,{textarea:true,rows:6})}<button type="button" data-action="preview-hide-item">Remove from resume</button>`;}
+  else if(t.kind==='experience'){const e=langData().experiences.find(x=>x.id===t.id);if(!e)return '';const v={...e,...d.metaOverrides[t.id]};title='Edit experience';body=['role','company','dates'].map((k,i)=>field(['Title','Company or project','Dates'][i],k,v[k]||'')).join('')+`<button type="button" data-action="preview-hide-item">Remove from resume</button><button type="button" data-action="new-bullet" data-id="${esc(e.id)}">Add item to library</button>`;}
+  else if(t.kind==='personal'){const p={...langData().profile,...(d.personalOverride||{})};title='Personal details';body=['name','phone','email','location','other'].map((k,i)=>field(['Name','Phone','Email','Location','Other details'][i],k,p[k]||'',k==='other'?{textarea:true,rows:3}:{})).join('');}
+  else if(t.kind==='education'){const e=(d.educationOverride??langData().profile.education).find(x=>x.id===t.id);if(!e)return '';title='Edit education';body=['school','degree','dates'].map((k,i)=>field(['School','Degree','Dates'][i],k,e[k]||'')).join('');}
+  else if(t.kind==='section'){
+    const s=sections.find(x=>x.id===t.id);title=s?.name||'Section';const custom=(langData().customSections||[]).find(x=>x.id===t.id);const entries=orderedExperiences().filter(e=>(e.section||'experience')===t.id);
+    body=`<p class="muted">Edit all content in this section. Changes apply only to this resume.</p><button type="button" data-action="preview-toggle-section" data-id="${esc(t.id)}">${(d.hiddenSections||[]).includes(t.id)?'Restore section':'Hide section'}</button>`;
+    if(t.id==='education'){const education=d.educationOverride??langData().profile.education;body+=`<div id="section-education-list">${orderedKeys(d.educationOrder,education.map(e=>e.id)).map(id=>{const e=education.find(x=>x.id===id);return `<div class="education-entry" data-education-entry><input type="hidden" name="education-id" value="${esc(e.id)}">${['school','degree','dates'].map((k,i)=>field(['School','Degree','Dates'][i],`education-${k}-${e.id}`,e[k]||'')).join('')}<button type="button" data-action="preview-remove-education">Remove from resume</button></div>`;}).join('')}</div><button type="button" data-action="preview-add-education">Add education</button>`;}
+    else if(t.id==='certificates')body+=field('Certificates and languages (one per line)','certificates',d.certificateOverride??langData().profile.certificates,{textarea:true,rows:8});
+    else {if(custom)body+=field('Section content','content',d.otherContent?.[t.id]??custom.content??'',{textarea:true,rows:5})+'<button type="button" data-action="preview-delete-section">Delete section</button>';body+=entries.map(e=>`<div class="education-entry"><strong>${esc(e.role||'Experience')}</strong>${['role','company','dates'].map((k,i)=>field(['Title','Company or project','Dates'][i],`entry-${k}-${e.id}`,e[k]||'')).join('')}${e.bullets.map(b=>field('Item',`bullet-${b.id}`,d.overrides[b.id]??b.text,{textarea:true,rows:3})).join('')}</div>`).join('');}
+  }
+  return `<div class="preview-editor"><button type="button" class="quiet small" data-action="${t.kind==='section'?'preview-sections':'preview-close'}">← ${t.kind==='section'?'Back to sections':'Back to selection'}</button><h2 class="${t.kind==='section'?'section-name':''}">${esc(title)}</h2><form id="preview-edit-form">${body}${['bullet','experience','personal','education','section'].includes(t.kind)?'<button class="primary" type="submit">Save changes</button>':''}</form><p class="muted">Use the arrows beside the preview to move the selected section or item.</p></div>`;
+}
+function movePreviewTarget(direction){
+  const t=ui.previewTarget,d=draft();if(!t)return;
+  let ids,assign;
+  if(t.kind==='section'){ids=orderedKeys(d.sectionOrder,[...SECTIONS,...(langData().customSections||[]).map(s=>s.id)]).filter(id=>!(d.hiddenSections||[]).includes(id));assign=()=>{d.sectionOrder=orderedKeys(ids,[...SECTIONS,...(langData().customSections||[]).map(s=>s.id)]);};}
+  else if(t.kind==='experience'){const current=langData().experiences.find(e=>e.id===t.id);ids=orderedExperiences().filter(e=>(e.section||'experience')===(current?.section||'experience')).map(e=>e.id);assign=()=>{d.order=orderedKeys(ids,d.order);};}
+  else if(t.kind==='bullet'){const {e}=findBullet(t.id);ids=d.selected.filter(id=>e?.bullets.some(b=>b.id===id));assign=()=>{const slots=d.selected.map((v,i)=>ids.includes(v)?i:-1).filter(i=>i>=0);slots.forEach((slot,i)=>{d.selected[slot]=ids[i];});};}
+  else if(t.kind==='education'){const entries=d.educationOverride??langData().profile.education;ids=orderedKeys(d.educationOrder,entries.map(e=>e.id));assign=()=>{d.educationOrder=ids;};}
+  else return;const i=ids.indexOf(t.id),j=i+direction;if(i<0||j<0||j>=ids.length){toast('Cannot move further in this direction.');return;}[ids[i],ids[j]]=[ids[j],ids[i]];assign();save();render();
 }
 function selectionList() {
   const groups = langData().experiences.map(e=>({e,bullets:(ui.alphabetical?[...e.bullets].sort((a,b)=>a.text.localeCompare(b.text,undefined,{sensitivity:"base"})):e.bullets).filter(b=>filterBullet(e,b))})).filter(g=>g.bullets.length||(!g.e.bullets.length&&!ui.search&&ui.category==='all'));
@@ -156,7 +184,7 @@ function resumeMarkup() {
   const d=draft(), p={...langData().profile,...(d.personalOverride||{}),education:d.educationOverride??langData().profile.education}, en=state.activeLang==='en';
   const contact = [p.phone,p.email,p.location].filter(Boolean).map(esc).join(' | ');
   const education = orderedKeys(d.educationOrder,p.education.map(e=>e.id)).map(id=>p.education.find(e=>e.id===id));
-  const certificateLines = p.certificates.split('\n').filter(line=>line.trim());
+  const certificateLines = (d.certificateOverride??p.certificates).split('\n').filter(line=>line.trim());
   const certificates = orderedKeys(d.certificateOrder,certificateLines.map((_,i)=>i)).map(i=>({id:i,text:certificateLines[i]}));
   const sections = {
     education:education.length?`<h2 class="resume-heading" data-preview-sort="sections" data-preview-key="education">${en?'Education':'教育背景'}</h2>${education.map(e=>`<div class="resume-education" data-preview-sort="education" data-preview-key="${esc(e.id)}"><div class="resume-row"><span class="resume-school">${esc(e.school)}</span><span class="resume-dates">${esc(e.dates)}</span></div><div class="resume-degree">${esc(e.degree)}</div></div>`).join('')}`:'',
@@ -165,12 +193,40 @@ function resumeMarkup() {
   };
   for(const section of [{id:'experience',name:en?'Work Experience':'工作经历'},...(langData().customSections||[])]){
     const entries=orderedExperiences().filter(e=>(e.section || 'experience')===section.id);
-    const text=section.id==='experience'?'':(d.otherContent?.[section.id]||'');
+    const rawText=section.id==='experience'?'':(d.otherContent?.[section.id]||'');
+    const text=section.untitled && /^unclassified\s*$/i.test(rawText.trim())?'':rawText;
     sections[section.id]=(entries.length||text.trim())?`${section.untitled?'':`<h2 class="resume-heading" data-preview-sort="sections" data-preview-key="${esc(section.id)}">${esc(section.name)}</h2>`}${text.trim()?`<p class="resume-certificate" data-preview-edit="other" data-preview-id="${esc(section.id)}">${esc(text)}</p>`:''}${entries.map(e=>`<section class="resume-experience" data-preview-sort="experiences" data-preview-key="${esc(e.id)}"><div class="resume-row"><span class="resume-role">${esc(e.role)}</span><span class="resume-dates">${esc(e.dates)}</span></div>${e.company?`<div class="resume-company">${esc(e.company)}</div>`:''}<ul class="resume-bullets">${e.bullets.map(b=>`<li data-preview-sort="bullets-${esc(e.id)}" data-preview-key="${esc(b.id)}">${esc(d.overrides[b.id]??b.text)}</li>`).join('')}</ul></section>`).join('')}`:'';
   }
   return `<div class="resume-header"><h1 class="resume-name">${esc(p.name || (en?'Your Name':'姓名'))}</h1><span class="resume-contact">${contact}</span>${p.other?`<div class="resume-contact resume-contact-other">${esc(p.other)}</div>`:''}</div>${orderedKeys(d.sectionOrder,[...SECTIONS,...(langData().customSections||[]).map(s=>s.id)]).filter(id=>!(d.hiddenSections||[]).includes(id)).map(id=>sections[id]).join('')}`;
 }
 function careerPicker(){return `<div class="career-filter"><label for="career-select">岗位</label><select id="career-select" aria-label="当前职业">${state.careers.map(c=>`<option value="${esc(c.id)}" ${c.id===state.activeCareer?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>`;}
+function highlightPreviewTarget(target=ui.previewTarget){
+  const page=document.querySelector('#resume-preview'),area=document.querySelector('.paper-area');if(!page||!area)return;
+  page.querySelectorAll('.preview-active').forEach(el=>el.classList.remove('preview-active'));
+  if(!target)return;
+  const match=(group,id)=>[...page.querySelectorAll('[data-preview-sort]')].find(el=>el.dataset.previewSort===group&&el.dataset.previewKey===id);
+  let nodes=[];
+  if(target.kind==='personal')nodes=[page.querySelector('.resume-header')];
+  else if(target.kind==='section'){
+    const heading=match('sections',target.id);
+    if(heading){nodes=[heading];for(let el=heading.nextElementSibling;el&&!el.matches('[data-preview-sort="sections"]');el=el.nextElementSibling)nodes.push(el);}
+    else nodes=[...page.querySelectorAll('[data-preview-edit="other"]')].filter(el=>el.dataset.previewId===target.id);
+  }else if(target.kind==='experience')nodes=[match('experiences',target.id)];
+  else if(target.kind==='education')nodes=[match('education',target.id)];
+  else if(target.kind==='bullet')nodes=[...page.querySelectorAll('[data-preview-sort]')].filter(el=>el.dataset.previewSort.startsWith('bullets-')&&el.dataset.previewKey===target.id);
+  nodes=nodes.filter(Boolean);nodes.forEach(el=>el.classList.add('preview-active'));
+  if(nodes.length){const item=nodes[0].getBoundingClientRect(),view=area.getBoundingClientRect();if(item.top<view.top||item.bottom>view.bottom)area.scrollTop+=item.top-view.top-24;}
+  requestAnimationFrame(positionMoveControls);
+}
+function positionMoveControls(){
+  const grid=document.querySelector('.editor-grid'),controls=grid?.querySelector('.preview-move'),area=grid?.querySelector('.paper-area');
+  if(!grid||!controls||!area)return;
+  if(window.matchMedia('(max-width: 670px)').matches){controls.style.transform='';return;}
+  const gridBox=grid.getBoundingClientRect(),view=area.getBoundingClientRect(),selected=area.querySelector('.preview-active'),item=selected?.getBoundingClientRect();
+  const min=Math.max(view.top,gridBox.top)+12,max=Math.max(min,Math.min(view.bottom,gridBox.bottom)-controls.offsetHeight-12);
+  const y=Math.min(max,Math.max(min,item?item.top:view.top+80));
+  controls.style.transform=`translateY(${Math.max(0,y-gridBox.top)}px)`;
+}
 let resizeObserver;
 function refreshPreview() {
   const page=document.querySelector('#resume-preview'); if (!page) return;
@@ -199,9 +255,9 @@ function refreshPreview() {
     const style=getComputedStyle(area);
     const available=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
     const s=Math.min(1,available/816);
-    wrap.style.setProperty('--scale',s);wrap.style.width=`${816*s}px`;wrap.style.height=`${Math.max(1056,page.scrollHeight)*s}px`;
+    wrap.style.setProperty('--scale',s);wrap.style.width=`${816*s}px`;wrap.style.height=`${Math.max(1056,page.scrollHeight)*s}px`;requestAnimationFrame(positionMoveControls);
   };
-  resizeObserver?.disconnect(); resizeObserver=new ResizeObserver(scale);resizeObserver.observe(area);scale();
+  area.addEventListener('scroll',positionMoveControls,{passive:true});resizeObserver?.disconnect(); resizeObserver=new ResizeObserver(scale);resizeObserver.observe(area);scale();
 }
 function libraryView() {
   const l=langData();
@@ -248,7 +304,7 @@ function askName(title,value,callback) {
   openModal(title,field('名称','name',value,{required:true}),form=>{const name=form.get('name').trim();if(!name)throw new Error('请填写名称。');callback(name);done();});
 }
 function reorderModal(target) {
-  const d=draft(),p={...langData().profile,education:d.educationOverride??langData().profile.education},groups=orderedExperiences();
+  const d=draft(),p={...langData().profile,certificates:d.certificateOverride??langData().profile.certificates,education:d.educationOverride??langData().profile.education},groups=orderedExperiences();
   const names={education:translateText('教育经历'),experience:translateText('工作经历'),certificates:translateText('证书与语言'),...Object.fromEntries((langData().customSections||[]).map(s=>[s.id,s.name]))};
   const list=(name,items)=>`<div class="reorder-list" data-sort-list="${esc(name)}">${items.map(([id,text],i)=>`<div class="reorder-row" data-key="${esc(id)}"><span class="reorder-position">${i+1}</span><span class="reorder-text">${esc(text)}</span>${name==='sections'?`<label class="check-label"><input type="checkbox" name="visible-section" value="${esc(id)}" ${(d.hiddenSections||[]).includes(id)?'':'checked'}>显示</label>`:''}<div class="move-actions"><button type="button" class="small" data-sort-move="-1" aria-label="上移" ${i===0?'disabled':''}>${icon('up')}上移</button><button type="button" class="small" data-sort-move="1" aria-label="下移" ${i===items.length-1?'disabled':''}>${icon('down')}下移</button></div></div>`).join('') || '<p class="muted">暂无条目。</p>'}</div>`;
   const certificates=p.certificates.split('\n').filter(line=>line.trim());
@@ -578,7 +634,7 @@ function importModal() {
   openModal('导入经历',`<p>Upload a PDF or text file, or paste your resume. Review the extracted information before importing.</p><div class="import-zone"><label for="import-file">${icon('upload')} Choose a resume PDF or text file<input id="import-file" type="file" accept=".pdf,.txt,.md"></label><p>PDF / UTF-8 TXT · Maximum 20 MB</p></div><div class="form-field"><label for="ocr-language">Scanned PDF language</label><input id="ocr-language" value="English" disabled><input type="hidden" name="ocr-language" value="en"><small>Scanned pages are recognized on your device. The first use downloads language files.</small></div><div id="file-status" class="muted" role="status"></div>${field('或粘贴经历文本','text','',{textarea:true,rows:10})}<small>Check the recognized text before importing.</small>`,form=>{
     const text=form.get('text').trim();if(!text)throw new Error('请上传文件或粘贴经历内容。');
     const parsed=parseResume(text);
-    if(!parsed.experiences.length)throw new Error('未识别到工作经历。请保留职位、时间、公司和每条要点前的 • 或 -。');
+    if(!parsed.experiences.length && !parsed.education.length && !parsed.contentSections.length && !parsed.certificateSections.length)throw new Error('No resume sections were detected. Please check the extracted text.');
     reviewImport(parsed,modal.dataset.source||'粘贴导入');
   },{submit:'识别并核对',wide:true});
   modal.dataset.source='粘贴导入';
@@ -602,32 +658,31 @@ function importModal() {
 }
 function reviewImport(parsed,source) {
   const norm=t=>t.toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
-  const match=e=>langData().experiences.find(x=>{const a=norm(x.company.split('|').at(-1)),b=norm(e.company.split('|').at(-1));return a&&b&&(a===b||a.includes(b)||b.includes(a));});
   const sectionTitle=id=>id==='experience'?'Work Experience':(parsed.customSections||[]).find(s=>`custom:${s.name}`===id)?.name||'Other Experience';
   const workCount=parsed.experiences.filter(e=>(e.section||'experience')==='experience').length;
   const projectCount=parsed.experiences.length-workCount;
-  const experienceReviews=Object.entries(Object.groupBy(parsed.experiences,(e)=>e.section||'experience')).map(([section,entries])=>`<section class="review-section"><h2 class="section-name">${esc(sectionTitle(section))}</h2>${entries.map(e=>{
+  const experienceReviews=Object.entries(Object.groupBy(parsed.experiences,(e)=>e.section||'experience')).map(([section,entries])=>`<section class="review-section" data-review-section="${esc(section)}"><div class="inline-actions"><h2 class="section-name">${esc(sectionTitle(section))}</h2><button type="button" class="small" data-add-experience="${esc(section)}">+ Add item</button></div><div class="review-items">${entries.map(e=>{
     const i=parsed.experiences.indexOf(e),isProject=section!=='experience',kind=isProject?'Project':'Experience';
-    return `<div class="import-review" data-review="${i}"><div class="inline-actions"><h3>${kind} ${entries.indexOf(e)+1}</h3><label class="check-label"><input type="checkbox" name="include-${i}" checked>Import this ${kind.toLowerCase()}</label></div>${field(isProject?'Project name':'Job title',`role-${i}`,e.role)}${field(isProject?'Organization or link':'Company',`company-${i}`,e.company)}${field('Dates',`dates-${i}`,e.dates)}${field(isProject?'Project highlights (one per line)':'Experience highlights (one per line)',`bullets-${i}`,e.bullets.join('\n'),{textarea:true,rows:Math.min(8,Math.max(3,e.bullets.length*2))})}<div class="form-field"><label for="merge-${i}">Add to</label><select name="merge-${i}" id="merge-${i}"><option value="new">Create a new ${kind.toLowerCase()}</option>${langData().experiences.map(x=>`<option value="${esc(x.id)}" ${match(e)?.id===x.id?'selected':''}>Existing entry: ${esc(x.company)}</option>`).join('')}</select></div></div>`;
-  }).join('')}</section>`).join('');
-  const addProjectControl=`<section class="review-section"><div class="inline-actions"><h2>Other sections</h2><button type="button" class="small" id="add-project-review">${icon('plus')} Add project</button></div><p class="muted">Review projects and other sections below.</p></section>`;
-  openModal('核对识别结果',`<div class="parse-note">Found ${workCount} work experiences${projectCount?` and ${projectCount} project${projectCount===1?'':'s'}`:''}, plus ${parsed.education.length} education records. Review each item.</div><div class="import-review"><h3>基本信息</h3><p>勾选需要导入的字段，将替换当前对应内容。</p>${[['name','姓名'],['phone','电话'],['email','邮箱']].map(([key,label])=>`<label class="check-label"><input type="checkbox" name="import-${key}" ${parsed.profile[key]&&!langData().profile[key]?'checked':''}>导入${label}</label>${field(label,`profile-${key}`,parsed.profile[key])}`).join('')}<label class="check-label"><input type="checkbox" name="import-order">按识别的章节顺序排列当前简历</label><p class="muted">${esc(parsed.sectionOrder.join(' → ')||'未识别')}</p></div>${parsed.education.map((e,i)=>`<div class="import-review"><div class="inline-actions"><h3>教育经历 ${i+1}</h3><label class="check-label"><input type="checkbox" name="education-include-${i}" checked>导入这段教育经历</label></div>${field('学校及地点',`education-school-${i}`,e.school)}${field('学位及补充信息',`education-degree-${i}`,e.degree)}${field('就读时间',`education-dates-${i}`,e.dates)}</div>`).join('')}${(parsed.certificateSections||[]).map((section,i)=>`<div class="import-review"><div class="inline-actions"><h3>${esc(section.title)}</h3><label class="check-label"><input type="checkbox" name="certificate-include-${i}" checked>导入证书与语言</label></div>${field('证书与语言（每行一项）',`certificate-content-${i}`,section.content,{textarea:true,rows:4})}</div>`).join('')}${parsed.warnings.length?`<p class="error-text">${parsed.warnings.map(esc).join('；')}</p>`:''}${experienceReviews}${addProjectControl}`,form=>{
+    return `<div class="import-review" data-review="${i}"><div class="inline-actions"><h3>${kind} ${entries.indexOf(e)+1}</h3><label class="check-label"><input type="checkbox" name="include-${i}" checked>Import this ${kind.toLowerCase()}</label></div>${field(isProject?'Project name':'Job title',`role-${i}`,e.role)}${field(isProject?'Organization or link':'Company',`company-${i}`,e.company)}${field('Dates',`dates-${i}`,e.dates)}${field(isProject?'Project highlights (one per line)':'Experience highlights (one per line)',`bullets-${i}`,e.bullets.join('\n'),{textarea:true,rows:Math.min(8,Math.max(3,e.bullets.length*2))})}</div>`;
+  }).join('')}</div></section>`).join('');
+  openModal('核对识别结果',`<div class="parse-note">Found ${workCount} work experiences${projectCount?` and ${projectCount} project${projectCount===1?'':'s'}`:''}, plus ${parsed.education.length} education records. Review each item.</div><div class="import-review"><h3>基本信息</h3><p>勾选需要导入的字段，将替换当前对应内容。</p>${[['name','姓名'],['phone','电话'],['email','邮箱']].map(([key,label])=>`<label class="check-label"><input type="checkbox" name="import-${key}" ${parsed.profile[key]&&!langData().profile[key]?'checked':''}>导入${label}</label>${field(label,`profile-${key}`,parsed.profile[key])}`).join('')}<label class="check-label"><input type="checkbox" name="import-order">按识别的章节顺序排列当前简历</label><p class="muted">${esc(parsed.sectionOrder.join(' → ')||'未识别')}</p></div>${parsed.education.length?`<section class="review-section"><div class="inline-actions"><h2>EDUCATION</h2><button type="button" class="small" id="add-education-review">+ Add item</button></div><div id="import-education-items">${parsed.education.map((e,i)=>`<div class="import-review"><div class="inline-actions"><h3>教育经历 ${i+1}</h3><label class="check-label"><input type="checkbox" name="education-include-${i}" checked>导入这段教育经历</label></div>${field('学校及地点',`education-school-${i}`,e.school)}${field('学位及补充信息',`education-degree-${i}`,e.degree)}${field('就读时间',`education-dates-${i}`,e.dates)}</div>`).join('')}</div></section>`:''}${(parsed.certificateSections||[]).map((section,i)=>`<div class="import-review"><div class="inline-actions"><h3>${esc(section.title)}</h3><button type="button" class="small" data-add-certificate="${i}">+ Add item</button><label class="check-label"><input type="checkbox" name="certificate-include-${i}" checked>导入证书与语言</label></div>${field('证书与语言（每行一项）',`certificate-content-${i}`,section.content,{textarea:true,rows:4})}</div>`).join('')}${parsed.warnings.length?`<p class="error-text">${parsed.warnings.map(esc).join('；')}</p>`:''}${experienceReviews}`,form=>{
     const entries=[];
     parsed.experiences.forEach((_,i)=>{
       if(!form.has(`include-${i}`))return;
       const role=form.get(`role-${i}`).trim(),company=form.get(`company-${i}`).trim(),dates=form.get(`dates-${i}`).trim(),bullets=splitBullets(form.get(`bullets-${i}`));
       if(!role&&!company&&!dates&&!bullets.length)throw new Error(`经历 ${i+1} 为空，请填写内容或取消导入。`);
-      entries.push({role,company,dates,bullets,merge:form.get(`merge-${i}`),section:parsed.experiences[i].section||'experience'});
+      entries.push({role,company,dates,bullets,section:parsed.experiences[i].section||'experience'});
     });
-    const importedCertificates=(parsed.certificateSections||[]).flatMap((_,i)=>form.has(`certificate-include-${i}`)?[form.get(`certificate-content-${i}`).trim()].filter(Boolean):[]);
+    const importedCertificates=(parsed.certificateSections||[]).flatMap((_,i)=>form.has(`certificate-include-${i}`)?[[form.get(`certificate-content-${i}`).trim(),...form.getAll(`certificate-extra-${i}`).map(v=>String(v).trim())].filter(Boolean).join('\n')].filter(Boolean):[]);
     const education=parsed.education.flatMap((_,i)=>{
       if(!form.has(`education-include-${i}`))return [];
       const item={school:form.get(`education-school-${i}`).trim(),degree:form.get(`education-degree-${i}`).trim(),dates:form.get(`education-dates-${i}`).trim()};
       if(!item.school)throw new Error(`请填写教育经历 ${i+1} 的学校。`);
       return [item];
     });
-    const importedSections=(parsed.contentSections||[]).flatMap((s,i)=>form.has(`custom-include-${i}`)?[{name:s.name,content:form.get(`custom-content-${i}`).trim()}]:[]);
-    if(!entries.length && !education.length && !importedCertificates.length && !importedSections.length && !form.get('unclassified-content').trim() && !['name','phone','email','other'].some(k=>form.has(`import-${k}`)))throw new Error('请至少选择一段经历或一项基本信息。');
+    const importedSections=(parsed.contentSections||[]).flatMap((s,i)=>form.has(`custom-include-${i}`)&&!s.newSection?[{name:s.name,content:[form.get(`custom-content-${i}`).trim(),...form.getAll(`custom-extra-${i}`).map(v=>String(v).trim())].filter(Boolean).join('\n')}]:[]);
+    for(const [i,section] of (parsed.contentSections||[]).entries()){if(section.newSection && form.has(`custom-include-${i}`)){const name=String(form.get(`custom-name-${i}`)||'').trim();if(!name)throw new Error('Enter a name for the new section.');importedSections.push({name,content:[String(form.get(`custom-content-${i}`)||'').trim(),...form.getAll(`custom-extra-${i}`).map(v=>String(v).trim())].filter(Boolean).join('\n')});}}
+    if(!entries.length && !education.length && !importedCertificates.length && !importedSections.length && !['name','phone','email','other'].some(k=>form.has(`import-${k}`)))throw new Error('请至少选择一段经历或一项基本信息。');
     if(importedCertificates.length){const lines=langData().profile.certificates.split('\n').map(v=>v.trim()).filter(Boolean);for(const item of importedCertificates)for(const line of item.split('\n').map(v=>v.trim()).filter(Boolean))if(!lines.some(v=>norm(v)===norm(line)))lines.push(line);langData().profile.certificates=lines.join('\n');}
     for(const item of education){
       const duplicate=langData().profile.education.some(existing=>norm(existing.school)===norm(item.school) && norm(existing.degree)===norm(item.degree) && norm(existing.dates)===norm(item.dates));
@@ -656,13 +711,11 @@ function reviewImport(parsed,source) {
       if(imported){const previous=existing.content||'';existing.content=previous&&imported.content&&!previous.includes(imported.content)?`${previous}\n${imported.content}`:previous||imported.content;draft().otherContent ||= {};draft().otherContent[existing.id]=existing.content;}
       sectionIds[`custom:${section.name}`]=existing.id;
     }
+    for(const imported of importedSections){let section=langData().customSections.find(s=>s.name.toLocaleLowerCase()===imported.name.toLocaleLowerCase());if(!section){section={id:uid(),name:imported.name,content:imported.content};langData().customSections.push(section);}else if(imported.content && !(section.content||'').includes(imported.content)){section.content=[section.content,imported.content].filter(Boolean).join('\n');}draft().otherContent ||= {};draft().otherContent[section.id]=section.content||'';draft().hiddenSections=(draft().hiddenSections||[]).filter(id=>id!==section.id);}
     if(parsed.sectionOrder.length && (form.has('import-order') || !draft().sectionOrder))draft().sectionOrder=parsed.sectionOrder.filter(id=>!id.startsWith('custom:')||sectionIds[id]).map(id=>sectionIds[id]||id);
-    const extraText=form.get('unclassified-content').trim();
-    if(extraText){const section={id:uid(),name:interfaceLanguage()==='en'?'Untitled content':'无标题内容',untitled:true,content:extraText};langData().customSections.push(section);draft().otherContent ||= {};draft().otherContent[section.id]=extraText;const order=orderedKeys(draft().sectionOrder,[...SECTIONS,...langData().customSections.map(s=>s.id)]).filter(id=>id!==section.id);const position=order.indexOf(sectionIds[form.get('unclassified-position')]||form.get('unclassified-position'));order.splice(position<0?order.length:position+1,0,section.id);draft().sectionOrder=order;}
     let added=0;
     for(const item of entries){
-      let e=langData().experiences.find(e=>e.id===item.merge);
-      if(!e){e={id:uid(),role:item.role,company:item.company,dates:item.dates,section:sectionIds[item.section]||'experience',alternatives:[],bullets:[]};langData().experiences.push(e);for(const d of langData().drafts)d.order.push(e.id);}
+      const e={id:uid(),role:item.role,company:item.company,dates:item.dates,section:sectionIds[item.section]||'experience',alternatives:[],bullets:[]};langData().experiences.push(e);for(const d of langData().drafts)d.order.push(e.id);
       for(const text of item.bullets){
         let bullet=e.bullets.find(b=>norm(b.text)===norm(text));
         if(!bullet){bullet={id:uid(),text,categories:[],sources:[source]};e.bullets.push(bullet);added++;}
@@ -674,17 +727,33 @@ function reviewImport(parsed,source) {
     }
     done(`导入完成，新增 ${added} 条要点。`);
   },{submit:'确认加入经历库',wide:true});
-  modal.querySelector('#add-project-review')?.addEventListener('click',()=>{
-    let section=(parsed.customSections||[]).find(s=>/project/i.test(s.name));
-    if(!section){section={name:'Projects'};(parsed.customSections ||= []).push(section);parsed.sectionOrder ||= [];if(!parsed.sectionOrder.includes('custom:Projects'))parsed.sectionOrder.push('custom:Projects');}
-    parsed.experiences.push({role:'',company:'',dates:'',bullets:[],section:`custom:${section.name}`});
-    reviewImport(parsed,source);
+  const reviews=(parsed.contentSections||[]).map((section,i)=>`<section class="review-section"><div class="inline-actions"><h2 class="section-name">${esc(section.name||'New section')}</h2><button type="button" class="small" data-add-custom="${i}">+ Add item</button></div><div class="import-review"><div class="inline-actions"><h3>${esc(section.name||'Section')} content</h3><label class="check-label"><input type="checkbox" name="custom-include-${i}" checked>Import section</label></div>${section.newSection?field('Section name',`custom-name-${i}`,section.name):''}${field('Section content',`custom-content-${i}`,section.content,{textarea:true,rows:6})}</div></section>`).join('');
+  modal.querySelector('.modal-body').insertAdjacentHTML('beforeend',`<h2 class="other-sections-heading">Other sections</h2><div id="import-custom-sections">${reviews}</div><button type="button" class="small" id="add-section-review">+ Add section</button>`);
+  modal.querySelector('.modal-body').addEventListener('click',event=>{
+    const button=event.target.closest('button');if(!button)return;
+    if(button.hasAttribute('data-add-experience')){
+      const section=button.dataset.addExperience,i=parsed.experiences.length,isProject=/project/i.test(section),kind=isProject?'Project':'Experience';
+      parsed.experiences.push({role:'',company:'',dates:'',bullets:[],section});
+      const container=button.closest('[data-review-section]').querySelector('.review-items');
+      container.insertAdjacentHTML('beforeend',`<div class="import-review" data-review="${i}"><div class="inline-actions"><h3>New ${kind.toLowerCase()}</h3><label class="check-label"><input type="checkbox" name="include-${i}" checked>Import this ${kind.toLowerCase()}</label></div>${field(isProject?'Project name':'Job title',`role-${i}`,'')}${field(isProject?'Organization or link':'Company',`company-${i}`,'')}${field('Dates',`dates-${i}`,'')}${field('Highlights (one per line)',`bullets-${i}`,'',{textarea:true,rows:4})}</div>`);
+      container.lastElementChild.querySelector('input:not([type=checkbox])')?.focus();
+    }else if(button.id==='add-education-review'){
+      const i=parsed.education.length;parsed.education.push({school:'',degree:'',dates:''});const container=modal.querySelector('#import-education-items');
+      container.insertAdjacentHTML('beforeend',`<div class="import-review"><div class="inline-actions"><h3>New education</h3><label class="check-label"><input type="checkbox" name="education-include-${i}" checked>Import this education</label></div>${field('School and location',`education-school-${i}`,'')}${field('Degree and details',`education-degree-${i}`,'')}${field('Dates',`education-dates-${i}`,'')}</div>`);container.lastElementChild.querySelector('input:not([type=checkbox])')?.focus();
+    }else if(button.hasAttribute('data-add-certificate')||button.hasAttribute('data-add-custom')){
+      const isCertificate=button.hasAttribute('data-add-certificate'),i=isCertificate?button.dataset.addCertificate:button.dataset.addCustom,container=isCertificate?button.closest('.import-review'):button.closest('.review-section').querySelector('.import-review');
+      container.insertAdjacentHTML('beforeend',`<div class="form-field"><label>New item</label><textarea name="${isCertificate?'certificate':'custom'}-extra-${esc(i)}" rows="2"></textarea></div>`);container.lastElementChild.querySelector('textarea').focus();
+    }
   });
-  const reviews=(parsed.contentSections||[]).map((section,i)=>`<div class="import-review"><div class="inline-actions"><h3 class="section-name">${esc(section.name)}</h3><label class="check-label"><input type="checkbox" name="custom-include-${i}" checked>${interfaceLanguage()==='en'?'Import section':'导入此章节'}</label></div>${field(interfaceLanguage()==='en'?'Section content':'章节内容',`custom-content-${i}`,section.content,{textarea:true,rows:6})}</div>`).join('');
-  modal.querySelector('.modal-body').insertAdjacentHTML('beforeend',reviews);
+  modal.querySelector('#add-section-review')?.addEventListener('click',()=>{
+    const sections=parsed.contentSections ||= [],i=sections.length;sections.push({name:'',content:'',newSection:true});
+    const container=modal.querySelector('#import-custom-sections');
+    container.insertAdjacentHTML('beforeend',`<section class="review-section"><div class="inline-actions"><h2>New section</h2><button type="button" class="small" data-add-custom="${i}">+ Add item</button></div><div class="import-review"><div class="inline-actions"><h3>Section content</h3><label class="check-label"><input type="checkbox" name="custom-include-${i}" checked>Import section</label></div>${field('Section name',`custom-name-${i}`,'')}${field('Section content',`custom-content-${i}`,'',{textarea:true,rows:6})}</div></section>`);
+    container.lastElementChild.querySelector('input[name^="custom-name-"]').focus();
+  });
   const en=interfaceLanguage()==='en';
   modal.querySelector('.import-review').insertAdjacentHTML('beforeend',`<label class="check-label"><input type="checkbox" name="import-other" ${parsed.profile.other&&!langData().profile.other?'checked':''}>${en?'Import other personal details':'导入其他个人信息'}</label>${field(en?'Other personal details':'其他个人信息','profile-other',parsed.profile.other||'',{textarea:true,rows:3})}`);
-  modal.querySelector('.modal-body').insertAdjacentHTML('beforeend',`<div class="import-review"><h3>${en?'Unclassified content':'未分类内容'}</h3>${field(en?'Untitled content':'无标题内容','unclassified-content','',{textarea:true,rows:3})}<label for="unclassified-position">${en?'Place after':'放在以下章节之后'}</label><select id="unclassified-position" name="unclassified-position">${parsed.sectionOrder.map(id=>`<option value="${esc(id)}">${esc(id.replace(/^custom:/,''))}</option>`).join('')}</select></div><details class="import-review"><summary>${en?'View extracted text':'查看提取的原文'}</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(parsed.sourceText||'')}</pre></details>`);
+  modal.querySelector('.modal-body').insertAdjacentHTML('beforeend',`<details class="import-review"><summary>View extracted text</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(parsed.sourceText||'')}</pre></details>`);
 }
 function download(blob,filename) {
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -756,6 +825,11 @@ function exportModal() {
   modal.querySelector('#export-jpg').onclick=async()=>{const button=modal.querySelector('#export-jpg');button.disabled=true;try{const canvas=await renderResumeCanvas();download(await canvasBlob(canvas,'image/jpeg',.95),'resume.jpg');modal.close();toast('JPEG downloaded.');}catch(error){button.disabled=false;toast('Image export is unavailable in this browser. Try Chrome or Edge.');}};
 }
 
+app.addEventListener('submit',event=>{if(event.target.id!=='preview-edit-form')return;event.preventDefault();const f=new FormData(event.target),t=ui.previewTarget,d=draft();if(t.kind==='bullet'){d.overrides[t.id]=String(f.get('text')).trim();}else if(t.kind==='experience'){d.metaOverrides[t.id]=Object.fromEntries(['role','company','dates'].map(k=>[k,String(f.get(k)).trim()]));}else if(t.kind==='personal'){d.personalOverride={...(d.personalOverride||{}),...Object.fromEntries(['name','phone','email','location','other'].map(k=>[k,String(f.get(k)).trim()]))};}else if(t.kind==='education'){d.educationOverride=clone(d.educationOverride??langData().profile.education);const e=d.educationOverride.find(x=>x.id===t.id);if(e)for(const k of ['school','degree','dates'])e[k]=String(f.get(k)).trim();}else if(t.kind==='section'){
+    if(t.id==='education'){d.educationOverride=f.getAll('education-id').map(id=>({id,...Object.fromEntries(['school','degree','dates'].map(k=>[k,String(f.get(`education-${k}-${id}`)||'').trim()]))})).filter(e=>e.school||e.degree||e.dates);d.educationOrder=d.educationOverride.map(e=>e.id);}
+    else if(t.id==='certificates'){d.certificateOverride=String(f.get('certificates')||'').trim();d.certificateOrder=undefined;}
+    else {if(t.id!=='experience'){d.otherContent ||= {};d.otherContent[t.id]=String(f.get('content')||'').trim();}for(const e of orderedExperiences().filter(e=>(e.section||'experience')===t.id)){d.metaOverrides[e.id]=Object.fromEntries(['role','company','dates'].map(k=>[k,String(f.get(`entry-${k}-${e.id}`)||'').trim()]));for(const b of e.bullets)d.overrides[b.id]=String(f.get(`bullet-${b.id}`)||'').trim();}}
+  }save();render();toast('Changes saved to this resume.');});
 app.addEventListener('pointermove',event=>{
   const wrap=event.target.closest('#paper-wrap');if(!wrap || event.pointerType==='touch')return;
   wrap.style.setProperty('--hint-x',`${Math.max(8,Math.min(event.clientX+16,innerWidth-180))}px`);
@@ -805,23 +879,25 @@ app.addEventListener('click',event=>{
   else if(action==='choose-personal')choosePersonal();
   else if(action==='sections')sectionsModal();
   else if(action==='reorder')reorderModal();
+  else if(action==='preview-sections'){ui.previewTarget={kind:'sections'};render();}
+  else if(action==='preview-select-section'){ui.previewTarget={kind:'section',id};render();}
+  else if(action==='preview-add-education'){const id=uid(),container=document.querySelector('#section-education-list');container.insertAdjacentHTML('beforeend',`<div class="education-entry" data-education-entry><input type="hidden" name="education-id" value="${esc(id)}">${['school','degree','dates'].map((k,i)=>field(['School','Degree','Dates'][i],`education-${k}-${id}`,'')).join('')}<button type="button" data-action="preview-remove-education">Remove from resume</button></div>`);container.lastElementChild.querySelector('input:not([type=hidden])')?.focus();}
+  else if(action==='preview-remove-education'){button.closest('[data-education-entry]')?.remove();}
+  else if(action==='preview-select-experience'){ui.previewTarget={kind:'experience',id};render();}
+  else if(action==='preview-delete-section'){const section=langData().customSections.find(s=>s.id===ui.previewTarget?.id);if(!section)return;if(langData().experiences.some(e=>e.section===section.id)){toast('Move or delete this section’s experiences in the library first.');return;}confirmModal('Delete section',`Delete “${section.name}” from the library and all resumes?`,()=>{langData().customSections=langData().customSections.filter(s=>s.id!==section.id);for(const d of langData().drafts){d.sectionOrder=(d.sectionOrder||[]).filter(x=>x!==section.id);d.hiddenSections=(d.hiddenSections||[]).filter(x=>x!==section.id);if(d.otherContent)delete d.otherContent[section.id];}ui.previewTarget={kind:'sections'};});}
+  else if(action==='preview-close'){ui.previewTarget=null;render();}
   else if(action==='preview-reorder'){
-    const wrap=event.target.closest('#paper-wrap'),selection=window.getSelection();
-    if(wrap && selection && !selection.isCollapsed && wrap.contains(selection.anchorNode))return;
-    if(wrap){
-      const special=event.target.closest('[data-preview-edit]');if(special){editFromPreview(special.dataset.previewEdit,special.dataset.previewId);return;}
-      if(event.target.closest('.resume-header')){editFromPreview('personal');return;}
-      const entry=event.target.closest('[data-preview-sort]');
-      if(entry?.dataset.previewSort==='education'){editFromPreview('education',entry.dataset.previewKey);return;}
-      if(entry?.dataset.previewSort?.startsWith('bullets-')){editFromPreview('bullet',entry.dataset.previewKey);return;}
-      if(entry?.dataset.previewSort==='experiences'){editFromPreview('experience',entry.dataset.previewKey);return;}
-      if(entry?.dataset.previewSort==='certificates'){editFromPreview('certificates');return;}
-      if(entry?.dataset.previewSort==='sections' && entry.dataset.previewKey==='certificates'){editFromPreview('certificates');return;}
-      if(entry?.dataset.previewSort==='sections' && (langData().customSections||[]).some(s=>s.id===entry.dataset.previewKey)){editFromPreview('other',entry.dataset.previewKey);return;}
-    }
-    const entry=event.target.closest('[data-preview-sort]');
-    reorderModal(entry?{group:entry.dataset.previewSort,key:entry.dataset.previewKey}:undefined);
+    const wrap=event.target.closest('#paper-wrap');if(!wrap)return;
+    const selection=window.getSelection();if(selection&&!selection.isCollapsed&&wrap.contains(selection.anchorNode))return;
+    const special=event.target.closest('[data-preview-edit]'),item=event.target.closest('[data-preview-sort]');
+    if(event.target.closest('.resume-header'))ui.previewTarget={kind:'personal'};
+    else if(special)ui.previewTarget={kind:'section',id:special.dataset.previewId};
+    else if(item){const group=item.dataset.previewSort,id=item.dataset.previewKey;ui.previewTarget={kind:group==='sections'?'section':group.startsWith('bullets-')?'bullet':group==='experiences'?'experience':group==='education'?'education':'section',id:group==='certificates'?'certificates':id};}
+    else ui.previewTarget={kind:'sections'};render();
   }
+  else if(action==='preview-move'){movePreviewTarget(Number(button.dataset.direction));}
+  else if(action==='preview-toggle-section'){const d=draft();d.hiddenSections ||= [];d.hiddenSections=d.hiddenSections.includes(id)?d.hiddenSections.filter(x=>x!==id):[...d.hiddenSections,id];save();render();}
+  else if(action==='preview-hide-item'){const target=ui.previewTarget;if(target?.kind==='bullet')draft().selected=draft().selected.filter(x=>x!==target.id);else if(target?.kind==='experience'){const e=langData().experiences.find(x=>x.id===target.id);const ids=new Set(e?.bullets.map(b=>b.id)||[]);draft().selected=draft().selected.filter(x=>!ids.has(x));draft().selectedExperiences=(draft().selectedExperiences||[]).filter(x=>x!==target.id);}ui.previewTarget=null;save();render();}
   else if(action==='import')importModal();
   else if(action==='layout')editLayout();
   else if(action==='add-project')addProject();
