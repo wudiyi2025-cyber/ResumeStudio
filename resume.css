@@ -1,0 +1,37 @@
+@page { size: letter; margin: 0; }
+.resume-page, .resume-page * { box-sizing: border-box; }
+.resume-page {
+  --resume-font: 13.4px;
+  --resume-blue: #345e8e;
+  width: 816px; height: 1056px; padding: 46px;
+  background: #fff; color: #090909; font-family: "Times New Roman", "Songti SC", SimSun, serif;
+  font-size: var(--resume-font); line-height: 1.16; text-align: left;
+  overflow-wrap: break-word; flex-shrink: 0;
+  -webkit-font-smoothing: auto;
+}
+.resume-page.black { --resume-blue: #161616; }
+.resume-page .resume-header { display: flex; align-items: baseline; gap: 8px 12px; flex-wrap: wrap; border-bottom: 1px solid var(--resume-blue); padding-bottom: 6px; margin-bottom: 5px; }
+.resume-page .resume-name { margin: 0; padding: 0; font-family: "Times New Roman", "Songti SC", serif; font-size: 30px; line-height: 1.1; font-weight: 700; color: #193858; }
+.resume-page.black .resume-name { color: #161616; }
+.resume-page .resume-contact { color: #193858; font-size: 12.5px; white-space: pre-line; overflow-wrap: break-word; }
+.resume-page .resume-contact-other { flex-basis: 100%; white-space: pre-wrap; }
+.resume-page.black .resume-contact { color: #161616; }
+.resume-page .resume-heading { font: 700 19px/1.14 Arial, "PingFang SC", sans-serif; color: var(--resume-blue); margin: 7px 0 5px; padding: 0; letter-spacing: -.3px; }
+.resume-page .resume-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.resume-page .resume-row > :first-child { min-width: 0; }
+.resume-page .resume-dates { font-weight: 700; flex-shrink: 0; text-align: right; white-space: nowrap; }
+.resume-page .resume-school { font-weight: 700; }
+.resume-page .resume-degree { margin-top: 2px; }
+.resume-page .resume-education { margin-bottom: 6px; }
+.resume-page .resume-experience { margin-top: 6px; }
+.resume-page .resume-role { font-size: 1.06em; font-weight: 700; }
+.resume-page .resume-company { font-style: italic; margin-top: 3px; margin-bottom: 3px; }
+.resume-page .resume-bullets { margin: 0; padding-left: 20px; }
+.resume-page .resume-bullets li { padding-left: 0; margin: 2px 0; white-space: pre-line; }
+.resume-page .resume-certificate { white-space: pre-line; margin: 0; line-height: 1.24; }
+.resume-page.lang-zh { line-height: 1.4; }
+.resume-page.lang-zh .resume-name { font-family: "Songti SC", SimSun, serif; }
+@media print {
+  body { margin: 0; background: white; }
+  .resume-page { margin: 0; box-shadow: none; }
+}
