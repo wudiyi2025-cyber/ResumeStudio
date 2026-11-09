@@ -49,7 +49,7 @@ function parseCertificateSections(lines){
   return result;
 }
 
-export function parseResume(text) {
+export function parseResume(text, {projectHeaders=[]}={}) {
   const inputText=String(text).replace(/\r\n?/g, '\n').replace(/([.!?。])\s+(?=(?:waitress|waiter|cleaning|cleaner|front\s*desk\s*assistant|library\s*assistant)\s*(?:\(part[ -]?time\))?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec))/gi,'$1\n');
   const lines = inputText.split('\n').map(l => l.replace(/\u00a0/g, ' ').trim()).filter(Boolean);
   const email=String(text).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || '';
@@ -83,6 +83,7 @@ export function parseResume(text) {
   const headingIndex = lines.findIndex(l => workHeading.test(l));
   const input = headingIndex >= 0 ? lines.slice(headingIndex + 1) : lines;
   const experiences = []; let current = null, headers = [], pendingBullet = '', currentSection='experience';
+  const formattedProjectHeaders=new Set(projectHeaders.map(line=>line.replace(/\s+/g,' ').trim()));
   const flushBullet = () => {
     if (pendingBullet.trim() && current) current.bullets.push(pendingBullet.replace(/\s+/g, ' ').trim());
     pendingBullet = '';
@@ -112,6 +113,7 @@ export function parseResume(text) {
     // like a generic text heading, but its entries have the same metadata and
     // bullet structure as work experience and must not be flattened to text.
     if(extraSectionHeading.test(line)){flushBullet();headers=[];current=null;currentSection=`custom:${line.replace(/[:：]\s*$/,'')}`;continue;}
+    if(currentSection!=='experience' && formattedProjectHeaders.has(line.replace(/\s+/g,' ').trim())){flushBullet();if(headers.length)startExperience();current=null;headers=[line];continue;}
     if(isTextSectionHeading(line))break;
     if (endHeading.test(line)) break;
     if (workHeading.test(line)) continue;
