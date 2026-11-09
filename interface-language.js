@@ -25,6 +25,42 @@ Object.assign(translations,{
  '导入经历':'Import resume',
  '或粘贴经历文本':'Or paste resume text'
 });
+Object.assign(translations,{
+ '直接下载与预览一致的 Letter 单页文件。':'Download a single-page Letter file matching the preview.',
+ '下载 PDF':'Download PDF','下载 PNG':'Download PNG','下载 JPEG':'Download JPEG','使用打印窗口':'Use print dialog',
+ '管理可重复使用的项目和自定义内容。要把内容放入简历，请回到简历制作页面选择。':'Manage reusable projects and custom sections. Select content for your resume in the Resume Editor.',
+ '勾选或取消勾选内容，并用上下箭头调整经历和要点顺序。':'Select items and use the arrows to reorder experiences and bullets.',
+ '点击预览中的内容进行编辑；在“已选内容”中勾选并调整顺序':'Click the preview to edit; select and reorder items under Selected.',
+ '新增章节后，请在“其他章节”中编辑内容；这里仅负责添加空白章节和调整顺序。':'Add sections and adjust their order here. Edit existing sections in Other sections.',
+ '自动排版会根据内容长度调整字号，尽量保持在一页内。':'Auto layout adjusts the text size to fit the content on one page.',
+ '自动排版 · 内容超出一页':'Auto layout · Content exceeds one page',
+ '简历工作室首页':'Resume Studio home','主导航':'Main navigation','岗位操作':'Career actions','简历操作':'Resume actions','打开排版设置':'Open layout settings','在预览中调整顺序':'Reorder resume',
+ '上移经历':'Move experience up','下移经历':'Move experience down','上移要点':'Move item up','下移要点':'Move item down',
+ '未填写职位':'No title','未填写公司':'No company','未填写时间':'No dates','英文经历库':'English experience library',
+ '顺序已保存，预览与导出已同步。':'Order saved. Preview and export are updated.',
+ '请填写章节名称。':'Enter a section name.','已更新当前简历资料。':'Resume details updated.',
+ '尚无分类，可先增加一个分类。':'No categories yet. Add one to get started.','恢复经历库原文':'Restore original library text',
+ '删除经历要点':'Delete experience item','这条要点也会从所有简历中移除。其他要点保持不变。':'This item will be removed from all resumes.',
+ '请至少填写一项经历信息。':'Enter at least one experience detail.','删除整段经历':'Delete experience',
+ '这段经历及所有要点也会从各份简历中移除。建议先下载数据备份。':'This experience and its items will be removed from all resumes. Consider downloading a backup first.',
+ '添加新章节':'Add a section','所在地':'Location','已导入所选内容。':'Selected content imported.','请先添加经历。':'Add an experience first.',
+ '一次最多添加 100 条，每条最多 5000 字。':'Add up to 100 items at a time, with up to 5,000 characters each.',
+ '请上传文件或粘贴经历内容。':'Upload a file or paste your resume text.','未识别到工作经历。请保留职位、时间、公司和每条要点前的 • 或 -。':'No work experience detected. Include titles, dates, companies, and bullet points.',
+ '文件不能超过 20 MB。':'The file must be no larger than 20 MB.','未读取到文字，请粘贴经历文本。':'No text was found. Please paste your resume text.',
+ '请至少选择一段经历或一项基本信息。':'Select at least one experience or personal detail.',
+ '无标题内容':'Untitled content','导入此章节':'Import section','导入其他个人信息':'Import other personal details','其他个人信息':'Other personal details','未分类内容':'Unclassified content','放在以下章节之后':'Place after','查看提取的原文':'View extracted text',
+ '备份已下载，包含中英文经历库和所有简历。':'Backup downloaded.','账户与同步':'Account and sync','登录已过期':'Session expired',
+ '请选择备份文件。':'Choose a backup file.','备份文件不能超过 20 MB。':'The backup must be no larger than 20 MB.','备份不是有效的 JSON 文件。':'The backup is not valid JSON.','备份结构不完整，未修改当前数据。':'The backup is incomplete. Your data was not changed.',
+ '将用所选备份替换当前全部数据。':'Replace all current data with the selected backup.',
+ '找不到简历预览。':'Resume preview not found.','无法生成简历图片，请使用打印导出。':'Could not generate the image. Try the print dialog.','无法生成图片文件。':'Could not generate the image file.',
+ '已加入当前简历。':'Added to the current resume.','清空当前简历的经历选择':'Clear selected experience',
+ '只清空当前简历的勾选，经历库与其他简历保持不变。':'Clear selections from this resume. Your library and other resumes are unchanged.',
+ '修改简历名称':'Rename resume','另存一份简历':'Duplicate resume','删除当前简历':'Delete current resume','经历库与其他简历保持不变。':'Your library and other resumes are unchanged.',
+ '修改分类名称':'Rename category','删除分类':'Delete category','只移除分类，分类中的经历要点仍保留在经历库中。':'Remove this category. Its items remain in your library.',
+ '保存的数据格式有误，已加载初始经历库。原数据尚未被覆盖。':'Saved data could not be read. Your original data has not been overwritten.',
+ '无法读取本地保存。可以继续编辑，请及时下载备份。':'Local data could not be read. Download a backup of your changes.',
+ '浏览器空间不足或禁止保存，请下载数据备份。':'Could not save locally. Please download a backup.','尚未保存，请下载备份':'Not saved. Download a backup.'
+});
 export function translateText(value){
  if(translations[value])return translations[value];
  return value.replace(/^1 页 · (.+)$/,(_,n)=>`1 page · ${n}`).replace(/^超出 1 页，请减少条目$/, 'Exceeds one page. Reduce the content.').replace(/^(\d+) 段经历 · (\d+) 条要点$/,(_,a,b)=>`${a} experiences · ${b} items`).replace(/^(.+) · 每条经历要点$/,(_,name)=>`${name} · Experience items`).replace(/^已选择 (\d+) 条经历要点$/,(_,n)=>`${n} experience items selected`).replace(/^识别到 (\d+) 段工作经历、(\d+) 段教育经历。请逐项核对。$/,(_,a,b)=>`Found ${a} work experiences and ${b} education records. Review each item.`).replace(/^经历 (\d+)$/,(_,n)=>`Experience ${n}`).replace(/^教育经历 (\d+)$/,(_,n)=>`Education ${n}`).replace(/^已读取 (.+)$/,(_,name)=>`Loaded ${name}`).replace(/^已添加 (\d+) 条，替换 (\d+) 条。$/,(_,a,b)=>`Added ${a} items and replaced ${b}.`).replace(/^导入完成，新增 (\d+) 条要点。$/,(_,n)=>`Import complete. Added ${n} items.`).replace(/^(.+) 条要点，来自 (.+) 段经历$/,(_,a,b)=>`${a} items from ${b} experiences`);

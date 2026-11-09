@@ -140,6 +140,6 @@ export function parseResume(text) {
   // A header without bullets remains visible for manual completion, never silently discarded.
   return {
     experiences, profile:{name,phone,email,other},education:parseEducation(lines),certificateSections:parseCertificateSections(lines),sectionOrder,customSections,contentSections:contentSections.map(s=>({...s,content:s.content.join('\n')})),sourceText:String(text),
-    warnings: experiences.flatMap((e, i) => [!e.role && `第 ${i + 1} 段缺少职位`, !e.company && `第 ${i + 1} 段缺少公司`, !e.dates && `第 ${i + 1} 段缺少时间`, !e.bullets.length && `第 ${i + 1} 段尚无经历要点`].filter(Boolean))
+    warnings: experiences.flatMap((e, i) => [!e.role && `Experience ${i + 1} is missing a title.`, !e.company && `Experience ${i + 1} is missing a company.`, !e.dates && `Experience ${i + 1} is missing dates.`, !e.bullets.length && `Experience ${i + 1} has no bullet points.`].filter(Boolean))
   };
 }

@@ -16,7 +16,7 @@
 .resume-page .resume-contact { color: #193858; font-size: 12.5px; white-space: pre-line; overflow-wrap: break-word; }
 .resume-page .resume-contact-other { flex-basis: 100%; white-space: pre-wrap; }
 .resume-page.black .resume-contact { color: #161616; }
-.resume-page .resume-heading { font: 700 19px/1.14 Arial, "PingFang SC", sans-serif; color: var(--resume-blue); margin: 7px 0 5px; padding: 0; letter-spacing: -.3px; }
+.resume-page .resume-heading { font: 700 19px/1.14 Arial, "PingFang SC", sans-serif; color: var(--resume-blue); margin: 7px 0 5px; padding: 0; letter-spacing: -.3px; text-transform: uppercase; }
 .resume-page .resume-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .resume-page .resume-row > :first-child { min-width: 0; }
 .resume-page .resume-dates { font-weight: 700; flex-shrink: 0; text-align: right; white-space: nowrap; }

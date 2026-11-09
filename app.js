@@ -1,10 +1,10 @@
 import { splitParagraphs, similarity } from './batch.js';
-import { interfaceLanguage, translateInterface, translateText } from './interface-language.js?v=20261030-5';
+import { interfaceLanguage, translateInterface, translateText } from './interface-language.js?v=20261109-1';
 import { validState } from './validation.js';
 import { CloudSync } from './cloud.js';
 import { SEED } from './seed.js';
-import { parseResume } from './parser.js?v=20261107-3';
-import { extractPdf } from './pdf-import.js?v=20261030-4';
+import { parseResume } from './parser.js?v=20261109-1';
+import { extractPdf } from './pdf-import.js?v=20261109-1';
 import { SECTIONS, orderedKeys, migrateState } from './model.js';
 
 const STORAGE = 'resume-studio-v1';
@@ -184,7 +184,7 @@ function refreshPreview() {
   }
   ui.fits=fits(); ui.font=font;
   const badge=document.querySelector('#page-badge');
-  badge.textContent=ui.fits?`自动排版 · 1 页 · ${(font*.75).toFixed(1)} pt`:'自动排版 · 内容超出一页';
+  badge.textContent=ui.fits?`Auto layout · 1 page · ${(font*.75).toFixed(1)} pt`:'Auto layout · Content exceeds one page';
   badge.classList.toggle('over',!ui.fits);
   const area=document.querySelector('.paper-area'),wrap=document.querySelector('#paper-wrap');
   const scale=()=>{
@@ -709,7 +709,7 @@ function restore() {
 async function renderResumeCanvas() {
   const page=document.querySelector('#resume-preview');
   if(!page)throw new Error('找不到简历预览。');
-  const css=await fetch('./resume.css?v=20261107-2').then(response=>response.text());
+  const css=await fetch('./resume.css?v=20261109-1').then(response=>response.text());
   const markup=`<div xmlns="http://www.w3.org/1999/xhtml" class="${esc(page.className)}" style="--resume-font:${ui.font||draft().fontSize}px;width:816px;height:1056px;overflow:hidden"><style>${css}</style>${resumeMarkup()}</div>`;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="816" height="1056" viewBox="0 0 816 1056"><foreignObject width="816" height="1056">${markup}</foreignObject></svg>`;
   const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
@@ -740,7 +740,7 @@ function exportModal() {
   if(!ui.fits){toast('内容超出一页。请减少条目或调整排版后导出。');return;}
   openModal('导出简历','<p>直接下载与预览一致的 Letter 单页文件。</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">下载 PDF</button><button type="button" id="export-png">下载 PNG</button><button type="button" id="export-jpg">下载 JPEG</button></div><button type="button" class="quiet small" id="print-resume">使用打印窗口</button>',null);
   const buttons=[...modal.querySelectorAll('button')];
-  const run=async(kind)=>{buttons.forEach(button=>button.disabled=true);try{const canvas=await renderResumeCanvas();if(kind==='pdf')download(pdfFromCanvas(canvas),'resume.pdf');else download(await canvasBlob(canvas,kind==='png'?'image/png':'image/jpeg',.95),`resume.${kind}`);modal.close();toast(`${kind.toUpperCase()} 已下载。`);}catch(error){buttons.forEach(button=>button.disabled=false);toast(error.message);}};
+  const run=async(kind)=>{buttons.forEach(button=>button.disabled=true);try{const canvas=await renderResumeCanvas();if(kind==='pdf')download(pdfFromCanvas(canvas),'resume.pdf');else download(await canvasBlob(canvas,kind==='png'?'image/png':'image/jpeg',.95),`resume.${kind}`);modal.close();toast(`${kind.toUpperCase()} downloaded.`);}catch(error){buttons.forEach(button=>button.disabled=false);toast(kind==='pdf'?'Direct PDF export is unavailable in this browser. Select “Use print dialog” and choose Save as PDF.':'Image export is unavailable in this browser. Try Chrome or Edge.');}};
   modal.querySelector('#export-pdf').onclick=()=>run('pdf');modal.querySelector('#export-png').onclick=()=>run('png');modal.querySelector('#export-jpg').onclick=()=>run('jpg');
   modal.querySelector('#print-resume').onclick=()=>{modal.close();requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));};
 }

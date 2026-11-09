@@ -6,7 +6,7 @@ export async function extractPdf(file, { language='en', onProgress=()=>{}, signa
   const document = await pdfjs.getDocument({data:await file.arrayBuffer(),disableFontFace:true}).promise;
   let worker,usedOcr=false;
   try {
-    if(document.numPages>20)throw new Error('请上传不超过 20 页的 PDF。');
+    if(document.numPages>20)throw new Error('Please upload a PDF of 20 pages or fewer.');
     const pages=[];
     for(let i=1;i<=document.numPages;i++){
       const page=await document.getPage(i);
@@ -38,7 +38,7 @@ export async function extractPdf(file, { language='en', onProgress=()=>{}, signa
         await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
         const result=await worker.recognize(canvas);
         if(signal?.aborted)throw new DOMException('Cancelled','AbortError');
-        if(!result.data.text.trim())throw new Error(`第 ${i} 页未识别到文字，请检查图片清晰度。`);
+        if(!result.data.text.trim())throw new Error(`No text was recognized on page ${i}. Check the image quality.`);
         pages.push(result.data.text.trim());
       } finally {canvas.width=0;canvas.height=0;}
     }
