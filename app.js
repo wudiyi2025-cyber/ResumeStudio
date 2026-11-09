@@ -117,7 +117,7 @@ function render() {
   app.innerHTML = `<div class="app-shell">
     <aside class="sidebar"><a class="brand" href="#editor" aria-label="简历工作室首页"><span class="brand-icon">${icon('file')}</span>简历工作室</a>
       <div class="side-label">我的工作台</div><nav class="nav-list" aria-label="主导航">
-      ${[['editor','file','简历制作'],['personal','file','个人信息'],['education','file','教育经历'],['other','folder','其他章节'],['library','library','经历库'],['categories','folder','分类管理']].map(([id,i,label])=>`<button class="nav-item ${ui.route===id?'active':''}" data-action="navigate" data-id="${id}" aria-label="${label}" ${ui.route===id?'aria-current="page"':''}>${icon(i)}${label}${id==='library'?`<span class="nav-count" aria-hidden="true">${allBullets().length}</span>`:''}</button>`).join('')}
+      ${[['editor','file','简历制作'],['personal','file','个人信息'],['education','file','教育经历'],['library','library','经历库'],['other','folder','其他章节'],['categories','folder','分类管理']].map(([id,i,label])=>`<button class="nav-item ${ui.route===id?'active':''}" data-action="navigate" data-id="${id}" aria-label="${label}" ${ui.route===id?'aria-current="page"':''}>${icon(i)}${label}${id==='library'?`<span class="nav-count" aria-hidden="true">${allBullets().length}</span>`:''}</button>`).join('')}
       </nav><div class="side-bottom"><div class="local-note"><span class="status-dot"></span>${cloud?.enabled?'登录后跨设备同步':'保存在本机浏览器'}</div><p>${cloud?.enabled?'经历与简历会自动同步。<br>也可以下载一份数据备份。':'经历与修改会自动保存。<br>换设备前，请先下载备份。'}</p>${cloud?.enabled?'<button class="quiet small" data-action="account">账户与同步</button>':''}<div class="backup-actions"><button class="quiet" data-action="backup">下载备份</button><button class="quiet" data-action="restore">恢复备份</button></div></div>
     </aside><main class="main"><header class="topbar"><div class="breadcrumbs">我的工作台 <span>/</span> <strong>${routeName}</strong></div><div class="top-actions">${syncStatus()}</div></header>
     <div class="workspace">${ui.route==='editor'?editorView():ui.route==='library'?libraryView():ui.route==='personal'||ui.route==='education'?personalView(ui.route):ui.route==='other'?otherView():categoriesView()}</div></main></div>`;
@@ -129,7 +129,7 @@ function render() {
   translateInterface(app);
 }
 function editorView() {
-  return `<div class="page-heading"><div><div class="eyebrow">RESUME STUDIO</div><h1>制作你的英文简历</h1><p>从经历库逐条选择，组合适合这次投递的简历。</p></div><div class="heading-actions"><button data-action="import">${icon('upload')}导入简历</button><button data-action="profile">${icon('edit')}基本信息</button><button class="primary" data-action="export">${icon('download')}导出简历</button></div></div>
+  return `<div class="page-heading"><div><div class="eyebrow">RESUME STUDIO</div><h1>制作你的英文简历</h1><p>从经历库逐条选择，组合适合这次投递的简历。</p></div><div class="heading-actions"><button data-action="import">${icon('upload')}导入简历</button><button class="primary" data-action="export">${icon('download')}导出简历</button></div></div>
   <div class="draft-bar"><div class="draft-picker"><div class="draft-picker-row"><label for="career-select">岗位</label><select id="career-select" aria-label="当前职业">${state.careers.map(c=>`<option value="${esc(c.id)}" ${c.id===state.activeCareer?'selected':''}>${esc(c.name)}</option>`).join('')}</select><details class="picker-menu"><summary title="${interfaceLanguage()==='en'?'Career actions':'岗位操作'}" aria-label="${interfaceLanguage()==='en'?'Career actions':'岗位操作'}">${icon('settings')}</summary><div class="picker-menu-options"><button type="button" data-action="new-career">${icon('plus')}新增岗位</button><button type="button" data-action="rename-career">${icon('edit')}修改职业名称</button><button type="button" data-action="copy-career-data">${icon('copy')}从其他岗位导入</button><button type="button" class="danger" data-action="delete-career">删除岗位</button></div></details></div><div class="draft-picker-row"><label for="draft-select">简历</label><select id="draft-select" aria-label="当前简历">${langData().drafts.map(d=>`<option value="${esc(d.id)}" ${d.id===draft().id?'selected':''}>${esc(d.name)}</option>`).join('')}</select><details class="picker-menu"><summary title="${interfaceLanguage()==='en'?'Resume actions':'简历操作'}" aria-label="${interfaceLanguage()==='en'?'Resume actions':'简历操作'}">${icon('settings')}</summary><div class="picker-menu-options"><button type="button" data-action="new-draft">${icon('plus')}新增简历</button><button type="button" data-action="rename-draft">${icon('edit')}修改简历名称</button><button type="button" data-action="choose-personal">${icon('file')}选择个人与教育资料</button><button type="button" data-action="copy-draft">${icon('copy')}另存一份</button>${langData().drafts.length>1?'<button type="button" class="danger" data-action="delete-draft">删除</button>':''}</div></details></div></div></div>
   <div class="editor-grid"><section class="selection-panel" aria-label="选择经历"><div class="selection-top"><div class="panel-tabs"><button data-action="tab" data-id="library" class="${ui.tab==='library'?'active':''}">选择经历 <span>${allBullets().length}</span></button><button data-action="tab" data-id="selected" class="${ui.tab==='selected'?'active':''}">已选内容 <span>${selectedCount()}</span></button></div>${ui.tab==='library'?`${searchField()}${categoriesFilter()}`:'<p class="independent-note">勾选或取消勾选内容，并用上下箭头调整经历和要点顺序。</p>'}</div>
   <div class="selection-summary"><span>${ui.tab==='library'?'勾选条目，即可加入右侧简历':`已选择 ${selectedCount()} 条经历要点`}</span><button class="quiet small" data-action="${ui.tab==='library'?'import':'clear-selection'}">${ui.tab==='library'?'导入经历':'清空选择'}</button></div><div class="experience-list" id="selection-list">${ui.tab==='library'?selectionList():selectedList()}</div></section>
@@ -176,15 +176,18 @@ function refreshPreview() {
   const page=document.querySelector('#resume-preview'); if (!page) return;
   page.className=`resume-page lang-${state.activeLang} ${draft().accent==='black'?'black':''}`;
   page.innerHTML=resumeMarkup();
-  let font=draft().fontSize;
+  let font=draft().autoFit?16:draft().fontSize;
+  let lineHeight=draft().autoFit?1.45:(draft().lineHeight??1.16);
   const fits=()=> page.scrollHeight<=page.clientHeight+1 && page.scrollWidth<=page.clientWidth+1;
   page.style.setProperty('--resume-font',`${font}px`);
+  page.style.setProperty('--resume-line-height',String(lineHeight));
   if(draft().autoFit) {
+    while(!fits() && lineHeight>1.16) { lineHeight=Math.max(1.16,Math.round((lineHeight-.02)*100)/100);page.style.setProperty('--resume-line-height',String(lineHeight)); }
     while(!fits() && font>12.67) { font=Math.max(12.67,font-.15); page.style.setProperty('--resume-font',`${font.toFixed(2)}px`); }
   }
-  ui.fits=fits(); ui.font=font;
+  ui.fits=fits(); ui.font=font;ui.lineHeight=lineHeight;
   const badge=document.querySelector('#page-badge');
-  badge.textContent=ui.fits?`Auto layout · 1 page · ${(font*.75).toFixed(1)} pt`:'Auto layout · Content exceeds one page';
+  badge.textContent=ui.fits?`${draft().autoFit?'Auto layout':'Manual layout'} · 1 page · ${(font*.75).toFixed(1)} pt`:'Content exceeds one page';
   badge.classList.toggle('over',!ui.fits);
   const area=document.querySelector('.paper-area'),wrap=document.querySelector('#paper-wrap');
   const scale=()=>{
@@ -285,7 +288,7 @@ function reorderModal(target) {
       d.selected=orderedKeys(d.order.flatMap(id=>groups.some(e=>e.id===id)?order(`bullets-${id}`):[]),d.selected);
       const page=modal.querySelector('.reorder-paper .resume-page');
       page.className=`resume-page lang-${state.activeLang} ${d.accent==='black'?'black':''}`;
-      page.style.setProperty('--resume-font',`${ui.font || d.fontSize}px`);
+      page.style.setProperty('--resume-font',`${ui.font || d.fontSize}px`);page.style.setProperty('--resume-line-height',String(ui.lineHeight??d.lineHeight??1.16));
       page.innerHTML=resumeMarkup();
       const area=modal.querySelector('.reorder-preview-area'),paper=modal.querySelector('.reorder-paper');
       const scale=Math.min(1,(area.clientWidth-32)/816);
@@ -324,16 +327,15 @@ function personalView(type){
 }
 function otherView(){
   const sections=langData().customSections||[];
-  return `<div class="page-heading"><div><h1>其他章节</h1><p>管理可重复使用的项目和自定义内容。要把内容放入简历，请回到简历制作页面选择。</p></div><div class="heading-actions"><button data-action="add-project">${icon('plus')}Add project</button><button data-action="new-other">${icon('plus')}新增章节</button></div></div>${careerPicker()}<article class="library-card personal-item"><div><h3>证书与语言</h3><p>${esc(langData().profile.certificates||'暂无文字内容')}</p></div><button data-action="edit-certificates">编辑</button></article>${sections.map(s=>{const projects=langData().experiences.filter(e=>e.section===s.id);const isProject=/project/i.test(s.name);return `<article class="library-card other-section-card"><div class="other-section-header"><div><h3>${esc(s.name)}</h3><p>${isProject?`${projects.length} project${projects.length===1?'':'s'} · manage these in Resume Studio`:esc(s.content||'暂无文字内容')}</p></div><div class="move-actions">${isProject?'<button data-action="add-project">Add project</button>':''}<button data-action="edit-other" data-id="${esc(s.id)}">编辑</button></div></div>${isProject?`<div class="other-project-list">${projects.map(e=>`<div class="other-project-row"><span><strong>${esc(e.role)}</strong><small>${esc([e.company,e.dates].filter(Boolean).join(' · '))}</small></span><button class="quiet small" data-action="edit-experience" data-id="${esc(e.id)}">Edit</button></div>`).join('')||'<p class="muted">No projects yet.</p>'}</div>`:''}</article>`;}).join('')}`;
+  return `<div class="page-heading"><div><h1>其他章节</h1><p>管理可重复使用的项目和自定义内容。要把内容放入简历，请回到简历制作页面选择。</p></div><div class="heading-actions"><button data-action="add-project">${icon('plus')}Add project</button><button data-action="new-other">${icon('plus')}新增章节</button></div></div>${careerPicker()}<article class="library-card personal-item"><div><h3>证书与语言</h3><p>${esc(langData().profile.certificates||'暂无文字内容')}</p></div><button data-action="edit-certificates">编辑</button></article>${sections.map(s=>{const projects=langData().experiences.filter(e=>e.section===s.id);const isProject=/project/i.test(s.name);return `<article class="library-card other-section-card"><div class="other-section-header"><div><h3 class="section-name">${esc(s.name)}</h3><p>${isProject?`${projects.length} project${projects.length===1?'':'s'} · manage these in Resume Studio`:esc(s.content||'暂无文字内容')}</p></div><div class="move-actions">${isProject?'<button data-action="add-project">Add project</button>':''}<button data-action="edit-other" data-id="${esc(s.id)}">编辑</button></div></div>${isProject?`<div class="other-project-list">${projects.map(e=>`<div class="other-project-row"><span><strong>${esc(e.role)}</strong><small>${esc([e.company,e.dates].filter(Boolean).join(' · '))}</small></span><button class="quiet small" data-action="edit-experience" data-id="${esc(e.id)}">Edit</button></div>`).join('')||'<p class="muted">No projects yet.</p>'}</div>`:''}</article>`;}).join('')}`;
 }
 function editLayout() {
   const d=draft();
-  d.autoFit=true;
-  save();
-  refreshPreview();
-  openModal('排版设置',`<p>自动排版会根据内容长度调整字号，尽量保持在一页内。</p><div class="form-field"><label for="accent">标题颜色</label><select id="accent" name="accent"><option value="blue" ${d.accent==='blue'?'selected':''}>Blue</option><option value="black" ${d.accent==='black'?'selected':''}>Black</option></select></div>`,form=>{
-    d.accent=form.get('accent');done();
+  openModal('Layout settings',`<p>Auto layout adjusts text size and line spacing to fit one page. Switch to manual to choose your own settings.</p><div class="form-field"><label for="layout-mode">Layout mode</label><select id="layout-mode" name="mode"><option value="auto" ${d.autoFit?'selected':''}>Auto layout</option><option value="manual" ${!d.autoFit?'selected':''}>Manual</option></select></div><div class="form-field"><label for="font-size">Body text size</label><select id="font-size" name="fontSize">${[[12.67,'9.5 pt'],[13.33,'10 pt'],[14,'10.5 pt'],[14.67,'11 pt'],[15.33,'11.5 pt'],[16,'12 pt']].map(([v,t])=>`<option value="${v}" ${Math.abs(v-d.fontSize)<.2?'selected':''}>${t}</option>`).join('')}</select></div><div class="form-field"><label for="line-height">Line spacing</label><select id="line-height" name="lineHeight">${[[1.16,'Compact'],[1.25,'Normal'],[1.35,'Relaxed'],[1.45,'Wide']].map(([v,t])=>`<option value="${v}" ${Math.abs(v-(d.lineHeight??1.16))<.01?'selected':''}>${t}</option>`).join('')}</select></div><div class="form-field"><label for="accent">Heading color</label><select id="accent" name="accent"><option value="blue" ${d.accent==='blue'?'selected':''}>Blue</option><option value="black" ${d.accent==='black'?'selected':''}>Black</option></select></div>`,form=>{
+    d.autoFit=form.get('mode')==='auto';if(!d.autoFit){d.fontSize=Number(form.get('fontSize'));d.lineHeight=Number(form.get('lineHeight'));}d.accent=form.get('accent');done();
   });
+  const mode=modal.querySelector('#layout-mode'),font=modal.querySelector('#font-size'),spacing=modal.querySelector('#line-height');
+  const update=()=>{font.disabled=spacing.disabled=mode.value==='auto';};mode.addEventListener('change',update);update();
 }
 function addProject(){
   const sections=langData().customSections ||= [];
@@ -599,11 +601,11 @@ function reviewImport(parsed,source) {
   const sectionTitle=id=>id==='experience'?'Work Experience':(parsed.customSections||[]).find(s=>`custom:${s.name}`===id)?.name||'Other Experience';
   const workCount=parsed.experiences.filter(e=>(e.section||'experience')==='experience').length;
   const projectCount=parsed.experiences.length-workCount;
-  const experienceReviews=Object.entries(Object.groupBy(parsed.experiences,(e)=>e.section||'experience')).map(([section,entries])=>`<section class="review-section"><h2>${esc(sectionTitle(section))}</h2>${entries.map(e=>{
+  const experienceReviews=Object.entries(Object.groupBy(parsed.experiences,(e)=>e.section||'experience')).map(([section,entries])=>`<section class="review-section"><h2 class="section-name">${esc(sectionTitle(section))}</h2>${entries.map(e=>{
     const i=parsed.experiences.indexOf(e),isProject=section!=='experience',kind=isProject?'Project':'Experience';
     return `<div class="import-review" data-review="${i}"><div class="inline-actions"><h3>${kind} ${entries.indexOf(e)+1}</h3><label class="check-label"><input type="checkbox" name="include-${i}" checked>Import this ${kind.toLowerCase()}</label></div>${field(isProject?'Project name':'Job title',`role-${i}`,e.role)}${field(isProject?'Organization or link':'Company',`company-${i}`,e.company)}${field('Dates',`dates-${i}`,e.dates)}${field(isProject?'Project highlights (one per line)':'Experience highlights (one per line)',`bullets-${i}`,e.bullets.join('\n'),{textarea:true,rows:Math.min(8,Math.max(3,e.bullets.length*2))})}<div class="form-field"><label for="merge-${i}">Add to</label><select name="merge-${i}" id="merge-${i}"><option value="new">Create a new ${kind.toLowerCase()}</option>${langData().experiences.map(x=>`<option value="${esc(x.id)}" ${match(e)?.id===x.id?'selected':''}>Existing entry: ${esc(x.company)}</option>`).join('')}</select></div></div>`;
   }).join('')}</section>`).join('');
-  const addProjectControl=`<section class="review-section"><div class="inline-actions"><h2>Projects</h2><button type="button" class="small" id="add-project-review">${icon('plus')} Add project</button></div><p class="muted">Add each project separately, then fill in its details below.</p></section>`;
+  const addProjectControl=`<section class="review-section"><div class="inline-actions"><h2>Other sections</h2><button type="button" class="small" id="add-project-review">${icon('plus')} Add project</button></div><p class="muted">Review projects and other sections below.</p></section>`;
   openModal('核对识别结果',`<div class="parse-note">Found ${workCount} work experiences${projectCount?` and ${projectCount} project${projectCount===1?'':'s'}`:''}, plus ${parsed.education.length} education records. Review each item.</div><div class="import-review"><h3>基本信息</h3><p>勾选需要导入的字段，将替换当前对应内容。</p>${[['name','姓名'],['phone','电话'],['email','邮箱']].map(([key,label])=>`<label class="check-label"><input type="checkbox" name="import-${key}" ${parsed.profile[key]&&!langData().profile[key]?'checked':''}>导入${label}</label>${field(label,`profile-${key}`,parsed.profile[key])}`).join('')}<label class="check-label"><input type="checkbox" name="import-order">按识别的章节顺序排列当前简历</label><p class="muted">${esc(parsed.sectionOrder.join(' → ')||'未识别')}</p></div>${parsed.education.map((e,i)=>`<div class="import-review"><div class="inline-actions"><h3>教育经历 ${i+1}</h3><label class="check-label"><input type="checkbox" name="education-include-${i}" checked>导入这段教育经历</label></div>${field('学校及地点',`education-school-${i}`,e.school)}${field('学位及补充信息',`education-degree-${i}`,e.degree)}${field('就读时间',`education-dates-${i}`,e.dates)}</div>`).join('')}${(parsed.certificateSections||[]).map((section,i)=>`<div class="import-review"><div class="inline-actions"><h3>${esc(section.title)}</h3><label class="check-label"><input type="checkbox" name="certificate-include-${i}" checked>导入证书与语言</label></div>${field('证书与语言（每行一项）',`certificate-content-${i}`,section.content,{textarea:true,rows:4})}</div>`).join('')}${parsed.warnings.length?`<p class="error-text">${parsed.warnings.map(esc).join('；')}</p>`:''}${experienceReviews}${addProjectControl}`,form=>{
     const entries=[];
     parsed.experiences.forEach((_,i)=>{
@@ -673,7 +675,7 @@ function reviewImport(parsed,source) {
     parsed.experiences.push({role:'',company:'',dates:'',bullets:[],section:`custom:${section.name}`});
     reviewImport(parsed,source);
   });
-  const reviews=(parsed.contentSections||[]).map((section,i)=>`<div class="import-review"><div class="inline-actions"><h3>${esc(section.name)}</h3><label class="check-label"><input type="checkbox" name="custom-include-${i}" checked>${interfaceLanguage()==='en'?'Import section':'导入此章节'}</label></div>${field(interfaceLanguage()==='en'?'Section content':'章节内容',`custom-content-${i}`,section.content,{textarea:true,rows:6})}</div>`).join('');
+  const reviews=(parsed.contentSections||[]).map((section,i)=>`<div class="import-review"><div class="inline-actions"><h3 class="section-name">${esc(section.name)}</h3><label class="check-label"><input type="checkbox" name="custom-include-${i}" checked>${interfaceLanguage()==='en'?'Import section':'导入此章节'}</label></div>${field(interfaceLanguage()==='en'?'Section content':'章节内容',`custom-content-${i}`,section.content,{textarea:true,rows:6})}</div>`).join('');
   modal.querySelector('.modal-body').insertAdjacentHTML('beforeend',reviews);
   const en=interfaceLanguage()==='en';
   modal.querySelector('.import-review').insertAdjacentHTML('beforeend',`<label class="check-label"><input type="checkbox" name="import-other" ${parsed.profile.other&&!langData().profile.other?'checked':''}>${en?'Import other personal details':'导入其他个人信息'}</label>${field(en?'Other personal details':'其他个人信息','profile-other',parsed.profile.other||'',{textarea:true,rows:3})}`);
@@ -709,8 +711,8 @@ function restore() {
 async function renderResumeCanvas() {
   const page=document.querySelector('#resume-preview');
   if(!page)throw new Error('找不到简历预览。');
-  const css=await fetch('./resume.css?v=20261109-1').then(response=>response.text());
-  const markup=`<div xmlns="http://www.w3.org/1999/xhtml" class="${esc(page.className)}" style="--resume-font:${ui.font||draft().fontSize}px;width:816px;height:1056px;overflow:hidden"><style>${css}</style>${resumeMarkup()}</div>`;
+  const css=await fetch('./resume.css?v=20261109-2').then(response=>response.text());
+  const markup=`<div xmlns="http://www.w3.org/1999/xhtml" class="${esc(page.className)}" style="--resume-font:${ui.font||draft().fontSize}px;--resume-line-height:${ui.lineHeight??draft().lineHeight??1.16};width:816px;height:1056px;overflow:hidden"><style>${css}</style>${resumeMarkup()}</div>`;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="816" height="1056" viewBox="0 0 816 1056"><foreignObject width="816" height="1056">${markup}</foreignObject></svg>`;
   const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
   try {
@@ -720,29 +722,31 @@ async function renderResumeCanvas() {
   } finally {URL.revokeObjectURL(url);}
 }
 function canvasBlob(canvas,type,quality){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('无法生成图片文件。')),type,quality));}
-function pdfFromCanvas(canvas) {
-  const jpeg=atob(canvas.toDataURL('image/jpeg',.95).split(',')[1]),imageBytes=new Uint8Array(jpeg.length);
-  for(let i=0;i<jpeg.length;i++)imageBytes[i]=jpeg.charCodeAt(i);
-  const encoder=new TextEncoder(),parts=[],offsets=[0];let length=0;
-  const add=(bytes)=>{parts.push(bytes);length+=bytes.length;};
-  add(encoder.encode('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n'));
-  const object=(number,head,body='')=>{offsets[number]=length;add(encoder.encode(`${number} 0 obj\n${head}${body?'\n'+body:''}\nendobj\n`));};
-  object(1,'<< /Type /Catalog /Pages 2 0 R >>');
-  object(2,'<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-  object(3,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Resume 4 0 R >> >> /Contents 5 0 R >>');
-  offsets[4]=length;add(encoder.encode(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>\nstream\n`));add(imageBytes);add(encoder.encode('\nendstream\nendobj\n'));
-  const content='q\n612 0 0 792 0 0 cm\n/Resume Do\nQ\n';object(5,`<< /Length ${encoder.encode(content).length} >>`,`stream\n${content}endstream`);
-  const xref=length;add(encoder.encode(`xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(value=>String(value).padStart(10,'0')+' 00000 n ').join('\n')}\ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`));
-  return new Blob(parts,{type:'application/pdf'});
+
+async function downloadTextPdf() {
+  if(!window.jspdf)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/jspdf/jspdf.umd.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('Could not load the PDF exporter.'));document.head.append(script);});
+  await document.fonts.ready;refreshPreview();
+  if(!ui.fits)throw new Error('Content exceeds one page. Reduce content before exporting.');
+  const page=document.querySelector('#resume-preview'),rect=page.getBoundingClientRect(),scale=rect.width/816;
+  const response=await fetch('./vendor/fonts/NotoSans-Regular.ttf');if(!response.ok)throw new Error('Could not load the PDF font.');
+  const bytes=new Uint8Array(await response.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+  const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter',compress:true});pdf.addFileToVFS('NotoSans.ttf',btoa(binary));pdf.addFont('NotoSans.ttf','NotoSans','normal');pdf.setFont('NotoSans');
+  const walker=document.createTreeWalker(page,NodeFilter.SHOW_TEXT);let node;
+  while((node=walker.nextNode())){
+    const parent=node.parentElement;if(!parent || !node.nodeValue.trim())continue;
+    const style=getComputedStyle(parent),size=parseFloat(style.fontSize),color=style.color.match(/[\d.]+/g)||[0,0,0];pdf.setFontSize(size*.75);pdf.setTextColor(Number(color[0]),Number(color[1]),Number(color[2]));
+    const pattern=/\S+/gu;let match;while((match=pattern.exec(node.nodeValue))){const range=document.createRange();range.setStart(node,match.index);range.setEnd(node,match.index+match[0].length);const bounds=range.getBoundingClientRect();if(!bounds.width)continue;const text=style.textTransform==='uppercase'?match[0].toLocaleUpperCase():match[0];pdf.text(text,(bounds.left-rect.left)/scale*.75,((bounds.top-rect.top)/scale+size*.86)*.75);}
+  }
+  for(const li of page.querySelectorAll('.resume-bullets li')){const bounds=li.getBoundingClientRect(),size=parseFloat(getComputedStyle(li).fontSize);pdf.setFontSize(size*.75);pdf.setTextColor(0,0,0);pdf.text('•',(bounds.left-rect.left)/scale*.75-8,((bounds.top-rect.top)/scale+size*.86)*.75);}
+  pdf.save('resume.pdf');
 }
 function exportModal() {
   refreshPreview();
   if(!ui.fits){toast('内容超出一页。请减少条目或调整排版后导出。');return;}
-  openModal('导出简历','<p>直接下载与预览一致的 Letter 单页文件。</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">下载 PDF</button><button type="button" id="export-png">下载 PNG</button><button type="button" id="export-jpg">下载 JPEG</button></div><button type="button" class="quiet small" id="print-resume">使用打印窗口</button>',null);
-  const buttons=[...modal.querySelectorAll('button')];
-  const run=async(kind)=>{buttons.forEach(button=>button.disabled=true);try{const canvas=await renderResumeCanvas();if(kind==='pdf')download(pdfFromCanvas(canvas),'resume.pdf');else download(await canvasBlob(canvas,kind==='png'?'image/png':'image/jpeg',.95),`resume.${kind}`);modal.close();toast(`${kind.toUpperCase()} downloaded.`);}catch(error){buttons.forEach(button=>button.disabled=false);toast(kind==='pdf'?'Direct PDF export is unavailable in this browser. Select “Use print dialog” and choose Save as PDF.':'Image export is unavailable in this browser. Try Chrome or Edge.');}};
-  modal.querySelector('#export-pdf').onclick=()=>run('pdf');modal.querySelector('#export-png').onclick=()=>run('png');modal.querySelector('#export-jpg').onclick=()=>run('jpg');
+  openModal('Export resume','<p>Download your resume as a PDF or JPEG.</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">Download PDF</button><button type="button" id="export-jpg">Download JPEG</button></div><button type="button" class="quiet small" id="print-resume">Use print dialog</button>',null);
+  modal.querySelector('#export-pdf').onclick=async()=>{const button=modal.querySelector('#export-pdf');button.disabled=true;try{await downloadTextPdf();modal.close();toast('PDF downloaded.');}catch(error){button.disabled=false;toast(error.message||'Could not export PDF.');}};
   modal.querySelector('#print-resume').onclick=()=>{modal.close();requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));};
+  modal.querySelector('#export-jpg').onclick=async()=>{const button=modal.querySelector('#export-jpg');button.disabled=true;try{const canvas=await renderResumeCanvas();download(await canvasBlob(canvas,'image/jpeg',.95),'resume.jpg');modal.close();toast('JPEG downloaded.');}catch(error){button.disabled=false;toast('Image export is unavailable in this browser. Try Chrome or Edge.');}};
 }
 
 app.addEventListener('pointermove',event=>{

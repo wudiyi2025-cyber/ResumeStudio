@@ -5,7 +5,7 @@
   --resume-blue: #345e8e;
   width: 816px; height: 1056px; padding: 46px;
   background: #fff; color: #090909; font-family: "Times New Roman", "Songti SC", SimSun, serif;
-  font-size: var(--resume-font); line-height: 1.16; text-align: left;
+  font-size: var(--resume-font); line-height: var(--resume-line-height, 1.16); text-align: left;
   overflow-wrap: break-word; flex-shrink: 0;
   -webkit-font-smoothing: auto;
 }
@@ -28,7 +28,7 @@
 .resume-page .resume-company { font-style: italic; margin-top: 3px; margin-bottom: 3px; }
 .resume-page .resume-bullets { margin: 0; padding-left: 20px; }
 .resume-page .resume-bullets li { padding-left: 0; margin: 2px 0; white-space: pre-line; }
-.resume-page .resume-certificate { white-space: pre-line; margin: 0; line-height: 1.24; }
+.resume-page .resume-certificate { white-space: pre-line; margin: 0; line-height: inherit; }
 .resume-page.lang-zh { line-height: 1.4; }
 .resume-page.lang-zh .resume-name { font-family: "Songti SC", SimSun, serif; }
 @media print {
