@@ -24,18 +24,13 @@ jobs:
       - name: Download repository
         uses: actions/checkout@v4
 
-      - name: Extract website
-        run: |
-          mkdir site
-          unzip -q resume-studio-pages.zip -d site
-
       - name: Prepare GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Upload website
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: .
 
       - name: Publish website
         id: deployment
