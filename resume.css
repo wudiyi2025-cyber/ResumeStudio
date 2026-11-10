@@ -27,6 +27,7 @@
 .resume-page .resume-role { font-size: 1.06em; font-weight: 700; }
 .resume-page .resume-company { font-style: italic; margin-top: 3px; margin-bottom: 3px; }
 .resume-page .resume-bullets { margin: 0; padding-left: 20px; }
+.resume-page .resume-bullets li.resume-plain-item { list-style: none; }
 .resume-page .resume-bullets li { padding-left: 0; margin: 2px 0; white-space: pre-line; }
 .resume-page .resume-certificate { white-space: pre-line; margin: 0; line-height: inherit; }
 .resume-page.lang-zh { line-height: 1.4; }
