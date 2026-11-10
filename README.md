@@ -1,4 +1,4 @@
-# Resume Blocks
+# Resume Studio
 
 Build an English resume like building blocks.
 
