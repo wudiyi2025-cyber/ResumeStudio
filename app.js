@@ -910,13 +910,33 @@ function exportFilename(extension){
   const safe=String(direction).trim().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'')||'resume';
   return `resume-${safe}.${extension}`;
 }
+function crc32(bytes){
+  let crc=0xffffffff;
+  for(const value of bytes){crc^=value;for(let i=0;i<8;i++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}
+  return (crc^0xffffffff)>>>0;
+}
+function zipStore(files){
+  const encoder=new TextEncoder(),parts=[],central=[];let offset=0;
+  const u16=value=>new Uint8Array([value&255,(value>>>8)&255]);
+  const u32=value=>new Uint8Array([value&255,(value>>>8)&255,(value>>>16)&255,(value>>>24)&255]);
+  const join=arrays=>{const result=new Uint8Array(arrays.reduce((n,a)=>n+a.length,0));let cursor=0;for(const a of arrays){result.set(a,cursor);cursor+=a.length;}return result;};
+  for(const file of files){const name=encoder.encode(file.name),data=file.data instanceof Uint8Array?file.data:encoder.encode(file.data),crc=crc32(data),local=join([new Uint8Array([80,75,3,4,20,0,0,0,0,0,0,0,0,0]),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),name,data]);parts.push(local);central.push({name,crc,size:data.length,offset});offset+=local.length;}
+  const centralBytes=central.map(item=>join([new Uint8Array([80,75,1,2,20,0,20,0,0,0,0,0,0,0]),u32(item.crc),u32(item.size),u32(item.size),u16(item.name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(item.offset),item.name]));
+  const directory=join(centralBytes),body=join(parts),end=join([new Uint8Array([80,75,5,6,0,0,0,0]),u16(central.length),u16(central.length),u32(directory.length),u32(body.length),u16(0)]);
+  return join([body,directory,end]);
+}
+function xmlEscape(value){return String(value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&apos;','"':'&quot;'}[char]));}
 async function downloadWord(){
-  const response=await fetch('./resume.css?v=20261118-2');
-  if(!response.ok)throw new Error('Could not load the resume styles.');
-  const css=await response.text(),content=resumeMarkup();
-  const html=`<!doctype html><html><head><meta charset="utf-8"><style>${css}
-@page{size:Letter;margin:0.5in}html,body{margin:0;padding:0;background:#fff}.resume-page{width:7.5in!important;min-height:10in!important;height:auto!important;padding:0!important;overflow:visible!important;box-shadow:none!important}.resume-page.manual-layout{height:auto!important}.resume-page *{box-sizing:border-box}</style></head><body>${content}</body></html>`;
-  download(new Blob([html],{type:'application/msword'}),exportFilename('doc'));
+  await document.fonts.ready;const canvas=await renderResumeCanvas(),pagePixels=2112,pageCount=Math.max(1,Math.ceil(canvas.height/pagePixels)),images=[];
+  for(let i=0;i<pageCount;i++){const page=document.createElement('canvas');page.width=canvas.width;page.height=pagePixels;const context=page.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,page.width,page.height);context.drawImage(canvas,0,i*pagePixels,page.width,pagePixels,0,0,page.width,page.height);const blob=await canvasBlob(page,'image/png');images.push(new Uint8Array(await blob.arrayBuffer()));}
+  const rels=images.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/page-${i+1}.png"/>`).join('');
+  const body=images.map((_,i)=>`<w:p w14:paraId="${String(i+1).padStart(8,'0')}" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"><w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="0"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><wp:extent cx="7772400" cy="10058400"/><wp:docPr id="${i+1}" name="Resume page ${i+1}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${i+1}" name="page-${i+1}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${i+1}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="7772400" cy="10058400"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>${i<pageCount-1?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':''}`).join('');
+  const documentXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const contentTypes=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+  const packageRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+  const wordRels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}</Relationships>`;
+  const files=[{name:'[Content_Types].xml',data:contentTypes},{name:'_rels/.rels',data:packageRels},{name:'word/document.xml',data:documentXml},{name:'word/_rels/document.xml.rels',data:wordRels},...images.map((data,i)=>({name:`word/media/page-${i+1}.png`,data}))];
+  download(new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}),exportFilename('docx'));
 }
 async function downloadTextPdf() {
   if(!window.jspdf)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/jspdf/jspdf.umd.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('Could not load the PDF exporter.'));document.head.append(script);});
@@ -941,10 +961,10 @@ async function downloadTextPdf() {
 function exportModal() {
   refreshPreview();
   if(draft().autoFit&&!ui.fits){toast('内容超出一页。请减少条目或调整排版后导出。');return;}
-  openModal('Export resume','<p>Download your resume as a PDF, Word document, or JPEG.</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">Download PDF</button><button type="button" id="export-word">Download Word (.doc)</button><button type="button" id="export-jpg">Download JPEG</button></div><button type="button" class="quiet small" id="print-resume">Use print dialog</button>',null);
+  openModal('Export resume','<p>Download your resume as a PDF, Word document, or JPEG.</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">Download PDF</button><button type="button" id="export-word">Download Word (.docx)</button><button type="button" id="export-jpg">Download JPEG</button></div><button type="button" class="quiet small" id="print-resume">Use print dialog</button>',null);
   modal.querySelector('#export-pdf').onclick=async()=>{const button=modal.querySelector('#export-pdf');button.disabled=true;try{await downloadTextPdf();modal.close();toast('PDF downloaded.');}catch(error){button.disabled=false;toast(error.message||'Could not export PDF.');}};
   modal.querySelector('#print-resume').onclick=()=>{modal.close();requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));};
-  modal.querySelector('#export-word').onclick=async()=>{const button=modal.querySelector('#export-word');button.disabled=true;try{await downloadWord();modal.close();toast('Word document downloaded.');}catch(error){button.disabled=false;toast(error.message||'Could not export the Word document.');}};
+  modal.querySelector('#export-word').onclick=async()=>{const button=modal.querySelector('#export-word');button.disabled=true;try{await downloadWord();modal.close();toast('Word document downloaded with PDF-style layout.');}catch(error){button.disabled=false;toast(error.message||'Could not export the Word document.');}};
   modal.querySelector('#export-jpg').onclick=async()=>{const button=modal.querySelector('#export-jpg');button.disabled=true;try{const canvas=await renderResumeCanvas();download(await canvasBlob(canvas,'image/jpeg',.95),exportFilename('jpg'));modal.close();toast('JPEG downloaded.');}catch(error){button.disabled=false;toast('Image export is unavailable in this browser. Try Chrome or Edge.');}};
 }
 
