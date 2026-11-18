@@ -253,10 +253,10 @@ function positionMoveControls(){
 let resizeObserver;
 function refreshPreview() {
   const page=document.querySelector('#resume-preview'); if (!page) return;
-  page.className=`resume-page lang-${state.activeLang} ${draft().accent==='black'?'black':''}`;
+  page.className=`resume-page lang-${state.activeLang} ${draft().accent==='black'?'black':''} ${draft().autoFit?'auto-fit':''}`;
   page.innerHTML=resumeMarkup();
   let font=draft().autoFit?16:draft().fontSize;
-  let lineHeight=draft().autoFit?1.45:(draft().lineHeight??1.16);
+  let lineHeight=draft().autoFit?1.35:(draft().lineHeight??1.16);
   const fits=()=>{
     const box=page.getBoundingClientRect(),scale=box.width/page.clientWidth;
     const bottom=box.bottom-parseFloat(getComputedStyle(page).paddingBottom)*scale;
@@ -266,8 +266,8 @@ function refreshPreview() {
   page.style.setProperty('--resume-font',`${font}px`);
   page.style.setProperty('--resume-line-height',String(lineHeight));
   if(draft().autoFit) {
-    while(!fits() && lineHeight>1.16) { lineHeight=Math.max(1.16,Math.round((lineHeight-.02)*100)/100);page.style.setProperty('--resume-line-height',String(lineHeight)); }
-    while(!fits() && font>12.67) { font=Math.max(12.67,font-.15); page.style.setProperty('--resume-font',`${font.toFixed(2)}px`); }
+    while(!fits() && lineHeight>1.02) { lineHeight=Math.max(1.02,Math.round((lineHeight-.02)*100)/100);page.style.setProperty('--resume-line-height',String(lineHeight)); }
+    while(!fits() && font>8.8) { font=Math.max(8.8,font-.12); page.style.setProperty('--resume-font',`${font.toFixed(2)}px`); }
   }
   ui.fits=fits(); ui.font=font;ui.lineHeight=lineHeight;
   const badge=document.querySelector('#page-badge');
