@@ -253,7 +253,7 @@ function positionMoveControls(){
 let resizeObserver;
 function refreshPreview() {
   const page=document.querySelector('#resume-preview'); if (!page) return;
-  page.className=`resume-page lang-${state.activeLang} ${draft().accent==='black'?'black':''} ${draft().autoFit?'auto-fit':''}`;
+  page.className=`resume-page lang-${state.activeLang} ${draft().accent==='black'?'black':''} ${draft().autoFit?'auto-fit':'manual-layout'}`;
   page.innerHTML=resumeMarkup();
   let font=draft().autoFit?16:draft().fontSize;
   let lineHeight=draft().autoFit?1.35:(draft().lineHeight??1.16);
@@ -269,16 +269,17 @@ function refreshPreview() {
     while(!fits() && lineHeight>1.02) { lineHeight=Math.max(1.02,Math.round((lineHeight-.02)*100)/100);page.style.setProperty('--resume-line-height',String(lineHeight)); }
     while(!fits() && font>8.8) { font=Math.max(8.8,font-.12); page.style.setProperty('--resume-font',`${font.toFixed(2)}px`); }
   }
-  ui.fits=fits(); ui.font=font;ui.lineHeight=lineHeight;
+  const pageCount=draft().autoFit?1:Math.max(1,Math.ceil(Math.max(1056,page.scrollHeight)/1056));
+  ui.fits=draft().autoFit?fits():true; ui.pageCount=pageCount; ui.font=font;ui.lineHeight=lineHeight;
   const badge=document.querySelector('#page-badge');
-  badge.textContent=ui.fits?`${draft().autoFit?'Auto layout':'Manual layout'} · 1 page · ${(font*.75).toFixed(1)} pt`:'Content exceeds one page';
+  badge.textContent=ui.fits?`${draft().autoFit?'Auto layout':'Manual layout'} · ${pageCount} ${pageCount===1?'page':'pages'} · ${(font*.75).toFixed(1)} pt`:'Content exceeds one page';
   badge.classList.toggle('over',!ui.fits);
   const area=document.querySelector('.paper-area'),wrap=document.querySelector('#paper-wrap');
   const scale=()=>{
     const style=getComputedStyle(area);
     const available=area.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
     const s=Math.min(1,available/816);
-    wrap.style.setProperty('--scale',s);wrap.style.width=`${816*s}px`;wrap.style.height=`${Math.max(1056,page.scrollHeight)*s}px`;requestAnimationFrame(positionMoveControls);
+    wrap.style.setProperty('--scale',s);wrap.style.width=`${816*s}px`;wrap.style.height=`${Math.max(1056,draft().autoFit?1056:page.scrollHeight)*s}px`;requestAnimationFrame(positionMoveControls);
   };
   area.addEventListener('scroll',positionMoveControls,{passive:true});resizeObserver?.disconnect(); resizeObserver=new ResizeObserver(scale);resizeObserver.observe(area);scale();
 }
@@ -593,7 +594,7 @@ function editProfile() {
   translateInterface(modal);
 }
 function categoryCheckboxes(selected=[]) {
-  return `<div class="form-field"><div class="category-label-row"><label>所属分类（可多选）</label><button type="button" class="quiet small add-category-inline" data-action="add-category-inline">${icon('plus')}增加分类</button></div><small>Categories help you organize experience items and filter them when tailoring a resume.</small><div class="category-checkboxes" data-category-boxes>${state.categories.map(c=>`<label class="check-label"><input type="checkbox" name="categories" value="${esc(c.id)}" ${selected.includes(c.id)?'checked':''}>${esc(c.name)}</label>`).join('')||'<span class="muted">No categories yet. Select Add category to create one.</span>'}</div><div class="category-add-inline hidden" data-category-add-form><input type="text" data-new-category-name placeholder="例如：诉讼方向" maxlength="40" aria-label="新分类名称"><button type="button" class="small primary" data-action="save-category-inline">保存</button><button type="button" class="quiet small" data-action="cancel-category-inline">取消</button></div></div>`;
+  return `<div class="form-field"><div class="category-label-row"><label>Tags</label><button type="button" class="quiet small add-category-inline" data-action="add-category-inline">${icon('plus')}Add tag</button></div><small>Tags organize experience items and help you filter them for each resume.</small><div class="category-checkboxes" data-category-boxes>${state.categories.map(c=>`<label class="check-label"><input type="checkbox" name="categories" value="${esc(c.id)}" ${selected.includes(c.id)?'checked':''}>${esc(c.name)}</label>`).join('')||'<span class="muted">No tags yet. Select Add tag to create one.</span>'}</div><div class="category-add-inline hidden" data-category-add-form><input type="text" data-new-category-name placeholder="e.g. Privacy" maxlength="40" aria-label="New tag name"><button type="button" class="small primary" data-action="save-category-inline">Save</button><button type="button" class="quiet small" data-action="cancel-category-inline">Cancel</button></div></div>`;
 }
 
 function refreshModalCategories(newId) {
@@ -623,9 +624,9 @@ function editBullet(id,mode='library',experienceId) {
   const {e,b}=id?findBullet(id):{e:langData().experiences.find(e=>e.id===experienceId),b:null};
   const original=b?.text||'';
   const text=mode==='draft'?(draft().overrides[id]??original):original;
-  openModal(mode==='draft'?'编辑当前简历要点':b?'编辑经历要点':'添加经历要点',`<p>${esc(e.role)} · ${esc(e.company)}<br>${mode==='draft'?'仅修改当前简历，经历库原文不变。':'修改经历库原文。未单独改写的简历将使用更新后的文字。'}</p>${field('经历内容','text',text,{textarea:true,rows:8,required:true})}${mode==='library'?categoryCheckboxes(b?.categories):''}${mode==='draft'&&draft().overrides[id]!==undefined?'<button type="button" id="restore-original" class="quiet small">恢复经历库原文</button>':''}`,form=>{
+  openModal(mode==='draft'?'编辑当前简历要点':b?'编辑经历要点':'添加经历要点',`<p>${esc(e.role)} · ${esc(e.company)}<br>${mode==='draft'?'Text changes apply only to this resume; tags are shared with the library.':'Edit the library item. Resumes without a separate edit will use the updated text.'}</p>${field('经历内容','text',text,{textarea:true,rows:8,required:true})}${b?categoryCheckboxes(b.categories):''}${mode==='draft'&&draft().overrides[id]!==undefined?'<button type="button" id="restore-original" class="quiet small">恢复经历库原文</button>':''}`,form=>{
     const text=form.get('text').trim();if(!text)throw new Error('请填写经历内容。');
-    if(mode==='draft'){ if(text===original)delete draft().overrides[id];else draft().overrides[id]=text; }
+    if(mode==='draft'){ if(text===original)delete draft().overrides[id];else draft().overrides[id]=text;if(b)b.categories=form.getAll('categories'); }
     else if(b){b.text=text;b.categories=form.getAll('categories');}
     else e.bullets.push({id:uid(),text,categories:form.getAll('categories'),sources:['手动输入']});
     done();
@@ -891,44 +892,60 @@ function restore() {
 async function renderResumeCanvas() {
   const page=document.querySelector('#resume-preview');
   if(!page)throw new Error('找不到简历预览。');
-  const css=await fetch('./resume.css?v=20261109-2').then(response=>response.text());
-  const markup=`<div xmlns="http://www.w3.org/1999/xhtml" class="${esc(page.className)}" style="--resume-font:${ui.font||draft().fontSize}px;--resume-line-height:${ui.lineHeight??draft().lineHeight??1.16};width:816px;height:1056px;overflow:hidden"><style>${css}</style>${resumeMarkup()}</div>`;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="816" height="1056" viewBox="0 0 816 1056"><foreignObject width="816" height="1056">${markup}</foreignObject></svg>`;
+  const css=await fetch('./resume.css?v=20261118-2').then(response=>response.text());
+  const pageHeight=draft().autoFit?1056:Math.max(1056,page.scrollHeight);
+  const markup=`<div xmlns="http://www.w3.org/1999/xhtml" class="${esc(page.className)}" style="--resume-font:${ui.font||draft().fontSize}px;--resume-line-height:${ui.lineHeight??draft().lineHeight??1.16};width:816px;height:${pageHeight}px;overflow:hidden"><style>${css}</style>${resumeMarkup()}</div>`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="816" height="${pageHeight}" viewBox="0 0 816 ${pageHeight}"><foreignObject width="816" height="${pageHeight}">${markup}</foreignObject></svg>`;
   const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
   try {
     const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('无法生成简历图片，请使用打印导出。'));img.src=url;});
-    const canvas=document.createElement('canvas'),scale=2;canvas.width=816*scale;canvas.height=1056*scale;
+    const canvas=document.createElement('canvas'),scale=2;canvas.width=816*scale;canvas.height=pageHeight*scale;
     const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);return canvas;
   } finally {URL.revokeObjectURL(url);}
 }
 function canvasBlob(canvas,type,quality){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('无法生成图片文件。')),type,quality));}
 
+function exportFilename(extension){
+  const direction=currentCareer()?.name||'resume';
+  const safe=String(direction).trim().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'')||'resume';
+  return `resume-${safe}.${extension}`;
+}
+async function downloadWord(){
+  const response=await fetch('./resume.css?v=20261118-2');
+  if(!response.ok)throw new Error('Could not load the resume styles.');
+  const css=await response.text(),content=resumeMarkup();
+  const html=`<!doctype html><html><head><meta charset="utf-8"><style>${css}
+@page{size:Letter;margin:0.5in}html,body{margin:0;padding:0;background:#fff}.resume-page{width:7.5in!important;min-height:10in!important;height:auto!important;padding:0!important;overflow:visible!important;box-shadow:none!important}.resume-page.manual-layout{height:auto!important}.resume-page *{box-sizing:border-box}</style></head><body>${content}</body></html>`;
+  download(new Blob([html],{type:'application/msword'}),exportFilename('doc'));
+}
 async function downloadTextPdf() {
   if(!window.jspdf)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/jspdf/jspdf.umd.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('Could not load the PDF exporter.'));document.head.append(script);});
   await document.fonts.ready;refreshPreview();
-  if(!ui.fits)throw new Error('Content exceeds one page. Reduce content before exporting.');
+  if(draft().autoFit&&!ui.fits)throw new Error('Content exceeds one page. Reduce content before exporting.');
   const page=document.querySelector('#resume-preview'),rect=page.getBoundingClientRect(),scale=rect.width/816;
   const response=await fetch('./vendor/fonts/NotoSans-Regular.ttf');if(!response.ok)throw new Error('Could not load the PDF font.');
   const bytes=new Uint8Array(await response.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
-  const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter',compress:true});pdf.addFileToVFS('NotoSans.ttf',btoa(binary));pdf.addFont('NotoSans.ttf','NotoSans','normal');pdf.setFont('NotoSans');
+  const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter',compress:true});
+  let lastPdfPage=0;const ensurePdfPage=pageIndex=>{while(lastPdfPage<pageIndex){pdf.addPage();lastPdfPage++;}pdf.setPage(pageIndex+1);};pdf.addFileToVFS('NotoSans.ttf',btoa(binary));pdf.addFont('NotoSans.ttf','NotoSans','normal');pdf.setFont('NotoSans');
   const walker=document.createTreeWalker(page,NodeFilter.SHOW_TEXT);let node;
   while((node=walker.nextNode())){
     const parent=node.parentElement;if(!parent || !node.nodeValue.trim())continue;
     const style=getComputedStyle(parent),size=parseFloat(style.fontSize),color=style.color.match(/[\d.]+/g)||[0,0,0],bold=Number(style.fontWeight)>=600,italic=style.fontStyle==='italic';pdf.setFontSize(size*.75);pdf.setTextColor(Number(color[0]),Number(color[1]),Number(color[2]));
-    const pattern=/\S+/gu;let match;while((match=pattern.exec(node.nodeValue))){const range=document.createRange();range.setStart(node,match.index);range.setEnd(node,match.index+match[0].length);const bounds=range.getBoundingClientRect();if(!bounds.width)continue;const text=style.textTransform==='uppercase'?match[0].toLocaleUpperCase():match[0];const latin=/^[\x20-\x7e\u00a0-\u00ff\u2010-\u2026]*$/.test(text);const family=/Arial|sans-serif/i.test(style.fontFamily)?'helvetica':'times';pdf.setFont(latin?family:'NotoSans',latin?(bold&&italic?'bolditalic':bold?'bold':italic?'italic':'normal'):'normal');const targetWidth=bounds.width/scale*.75,actualWidth=pdf.getTextWidth(text);const factor=actualWidth?targetWidth/actualWidth:1;pdf.text(text+' ',(bounds.left-rect.left)/scale*.75,((bounds.top-rect.top)/scale+size*.86)*.75,{horizontalScale:factor});}
+    const pattern=/\S+/gu;let match;while((match=pattern.exec(node.nodeValue))){const range=document.createRange();range.setStart(node,match.index);range.setEnd(node,match.index+match[0].length);const bounds=range.getBoundingClientRect();if(!bounds.width)continue;const text=style.textTransform==='uppercase'?match[0].toLocaleUpperCase():match[0];const latin=/^[\x20-\x7e\u00a0-\u00ff\u2010-\u2026]*$/.test(text);const family=/Arial|sans-serif/i.test(style.fontFamily)?'helvetica':'times';pdf.setFont(latin?family:'NotoSans',latin?(bold&&italic?'bolditalic':bold?'bold':italic?'italic':'normal'):'normal');const targetWidth=bounds.width/scale*.75,actualWidth=pdf.getTextWidth(text);const factor=actualWidth?targetWidth/actualWidth:1;const relativeTop=(bounds.top-rect.top)/scale,pageIndex=Math.max(0,Math.floor(relativeTop/1056));ensurePdfPage(pageIndex);pdf.text(text+' ',(bounds.left-rect.left)/scale*.75,((relativeTop-pageIndex*1056)+size*.86)*.75,{horizontalScale:factor});}
   }
   pdf.setFont('NotoSans','normal');
-  for(const li of page.querySelectorAll('.resume-bullets li:not(.resume-plain-item)')){const bounds=li.getBoundingClientRect(),size=parseFloat(getComputedStyle(li).fontSize);pdf.setFontSize(size*.75);pdf.setTextColor(0,0,0);pdf.text('•',(bounds.left-rect.left)/scale*.75-8,((bounds.top-rect.top)/scale+size*.86)*.75);}
+  for(const li of page.querySelectorAll('.resume-bullets li:not(.resume-plain-item)')){const bounds=li.getBoundingClientRect(),size=parseFloat(getComputedStyle(li).fontSize),relativeTop=(bounds.top-rect.top)/scale,pageIndex=Math.max(0,Math.floor(relativeTop/1056));ensurePdfPage(pageIndex);pdf.setFontSize(size*.75);pdf.setTextColor(0,0,0);pdf.text('•',(bounds.left-rect.left)/scale*.75-8,((relativeTop-pageIndex*1056)+size*.86)*.75);}
   const header=page.querySelector('.resume-header');if(header){const bounds=header.getBoundingClientRect(),color=getComputedStyle(header).borderBottomColor.match(/[\d.]+/g)||[0,0,0];pdf.setDrawColor(Number(color[0]),Number(color[1]),Number(color[2]));pdf.setLineWidth(.75);pdf.line((bounds.left-rect.left)/scale*.75,(bounds.bottom-rect.top)/scale*.75,(bounds.right-rect.left)/scale*.75,(bounds.bottom-rect.top)/scale*.75);}
-  pdf.save('resume.pdf');
+  pdf.save(exportFilename('pdf'));
 }
 function exportModal() {
   refreshPreview();
-  if(!ui.fits){toast('内容超出一页。请减少条目或调整排版后导出。');return;}
-  openModal('Export resume','<p>Download your resume as a PDF or JPEG.</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">Download PDF</button><button type="button" id="export-jpg">Download JPEG</button></div><button type="button" class="quiet small" id="print-resume">Use print dialog</button>',null);
+  if(draft().autoFit&&!ui.fits){toast('内容超出一页。请减少条目或调整排版后导出。');return;}
+  openModal('Export resume','<p>Download your resume as a PDF, Word document, or JPEG.</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">Download PDF</button><button type="button" id="export-word">Download Word (.doc)</button><button type="button" id="export-jpg">Download JPEG</button></div><button type="button" class="quiet small" id="print-resume">Use print dialog</button>',null);
   modal.querySelector('#export-pdf').onclick=async()=>{const button=modal.querySelector('#export-pdf');button.disabled=true;try{await downloadTextPdf();modal.close();toast('PDF downloaded.');}catch(error){button.disabled=false;toast(error.message||'Could not export PDF.');}};
   modal.querySelector('#print-resume').onclick=()=>{modal.close();requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));};
-  modal.querySelector('#export-jpg').onclick=async()=>{const button=modal.querySelector('#export-jpg');button.disabled=true;try{const canvas=await renderResumeCanvas();download(await canvasBlob(canvas,'image/jpeg',.95),'resume.jpg');modal.close();toast('JPEG downloaded.');}catch(error){button.disabled=false;toast('Image export is unavailable in this browser. Try Chrome or Edge.');}};
+  modal.querySelector('#export-word').onclick=async()=>{const button=modal.querySelector('#export-word');button.disabled=true;try{await downloadWord();modal.close();toast('Word document downloaded.');}catch(error){button.disabled=false;toast(error.message||'Could not export the Word document.');}};
+  modal.querySelector('#export-jpg').onclick=async()=>{const button=modal.querySelector('#export-jpg');button.disabled=true;try{const canvas=await renderResumeCanvas();download(await canvasBlob(canvas,'image/jpeg',.95),exportFilename('jpg'));modal.close();toast('JPEG downloaded.');}catch(error){button.disabled=false;toast('Image export is unavailable in this browser. Try Chrome or Edge.');}};
 }
 
 app.addEventListener('toggle',event=>{const entry=event.target.closest?.('details[data-other-entry]');if(!entry)return;if(entry.open)ui.openOtherEntries.add(entry.dataset.otherEntry);else ui.openOtherEntries.delete(entry.dataset.otherEntry);},true);
