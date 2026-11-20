@@ -624,9 +624,9 @@ function editBullet(id,mode='library',experienceId) {
   const {e,b}=id?findBullet(id):{e:langData().experiences.find(e=>e.id===experienceId),b:null};
   const original=b?.text||'';
   const text=mode==='draft'?(draft().overrides[id]??original):original;
-  openModal(mode==='draft'?'编辑当前简历要点':b?'编辑经历要点':'添加经历要点',`<p>${esc(e.role)} · ${esc(e.company)}<br>${mode==='draft'?'Text changes apply only to this resume; tags are shared with the library.':'Edit the library item. Resumes without a separate edit will use the updated text.'}</p>${field('经历内容','text',text,{textarea:true,rows:8,required:true})}${b?categoryCheckboxes(b.categories):''}${mode==='draft'&&draft().overrides[id]!==undefined?'<button type="button" id="restore-original" class="quiet small">恢复经历库原文</button>':''}`,form=>{
+  openModal(mode==='draft'?'编辑当前简历要点':b?'编辑经历要点':'添加经历要点',`<p>${esc(e.role)} · ${esc(e.company)}<br>${mode==='draft'?'Text changes update the library; tags are shared with the library.':'Edit the library item. Resumes without a separate edit will use the updated text.'}</p>${field('经历内容','text',text,{textarea:true,rows:8,required:true})}${b?categoryCheckboxes(b.categories):''}${mode==='draft'&&draft().overrides[id]!==undefined?'<button type="button" id="restore-original" class="quiet small">恢复经历库原文</button>':''}`,form=>{
     const text=form.get('text').trim();if(!text)throw new Error('请填写经历内容。');
-    if(mode==='draft'){ if(text===original)delete draft().overrides[id];else draft().overrides[id]=text;if(b)b.categories=form.getAll('categories'); }
+    if(mode==='draft'){if(b){b.text=text;b.categories=form.getAll('categories');delete draft().overrides[id];}}
     else if(b){b.text=text;b.categories=form.getAll('categories');}
     else e.bullets.push({id:uid(),text,categories:form.getAll('categories'),sources:['手动输入']});
     done();
@@ -643,7 +643,7 @@ function editExperience(id,onlyDraft=false) {
   openModal(onlyDraft?'编辑当前简历的经历信息':id?'编辑经历':'添加经历',`<p>${onlyDraft?'仅修改当前简历中的职位、公司和时间。':'填写职位、公司和时间。每段经历可以有多个要点。'}</p>${!onlyDraft?`<div class="form-field"><label for="experience-section">所属章节</label><select name="section" id="experience-section">${[{id:'experience',name:'工作经历'},...(langData().customSections||[])].map(s=>`<option value="${esc(s.id)}" ${(e.section||'experience')===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>`:''}${field('职位','role',e.role,{list:'role-alternatives'})}<datalist id="role-alternatives">${[original?.role,...(original?.alternatives||[])].filter(Boolean).map(t=>`<option value="${esc(t)}"></option>`).join('')}</datalist>${field('公司或项目名称','company',e.company)}${field('时间','dates',e.dates)}${!id?field('经历要点（每行一条）','bullets','',{textarea:true,rows:6}):''}`,form=>{
     const fields=Object.fromEntries(['role','company','dates'].map(k=>[k,form.get(k).trim()]));
     if(!Object.values(fields).some(Boolean))throw new Error('请至少填写一项经历信息。');
-    if(onlyDraft)draft().metaOverrides[id]=fields;
+    if(onlyDraft){if(original)Object.assign(original,fields);delete draft().metaOverrides[id];}
     else if(original)Object.assign(original,fields,{section:form.get('section')});
     else {const eid=uid();langData().experiences.unshift({id:eid,...fields,section:form.get('section'),alternatives:[],bullets:splitBullets(form.get('bullets')).map(text=>({id:uid(),text,categories:[],sources:['手动输入']}))});for(const d of langData().drafts)d.order.unshift(eid);ui.openCards.add(eid);}
     done();
@@ -717,22 +717,22 @@ function editCategory(id) {
 
 function batchBullets(id) {
   const experience=langData().experiences.find(e=>e.id===id);
-  openModal('批量添加经历条',`<p>${esc(experience.role)} · ${esc(experience.company)}</p><p>每段经历之间空一行；也可使用项目符号区分条目。</p>${field('经历内容','text','',{textarea:true,rows:12,required:true})}`,form=>{
-    const entries=splitParagraphs(form.get('text'));
-    if(!entries.length)throw new Error('请填写经历内容。');
-    if(entries.length>100 || entries.some(t=>t.length>5000))throw new Error('一次最多添加 100 条，每条最多 5000 字。');
+  openModal('Add multiple experience items',`<p>${esc(experience.role)} · ${esc(experience.company)}</p><p>Separate items with blank lines or bullet points.</p>${field('Experience items','text','',{textarea:true,rows:12,required:true})}<p class="muted">All items added in this batch will use the same tags.</p>${categoryCheckboxes()}`,form=>{
+    const entries=splitParagraphs(form.get('text')),categories=form.getAll('categories');
+    if(!entries.length)throw new Error('Enter experience items.');
+    if(entries.length>100 || entries.some(t=>t.length>5000))throw new Error('Add up to 100 items, with a maximum of 5,000 characters each.');
     const matches=entries.map(text=>experience.bullets.map(b=>({b,score:similarity(text,b.text)})).filter(m=>m.score>=.9).sort((a,b)=>b.score-a.score));
-    openModal('核对批量添加',`<p>共识别 ${entries.length} 条。相似度基于文字计算，请逐条确认。</p>${entries.map((text,i)=>`<div class="import-review"><h3>新经历条 ${i+1}</h3><p>${esc(text)}</p>${matches[i].length?`<p class="error-text">与现有条目相似（${Math.round(matches[i][0].score*100)}%）</p><p>${esc(matches[i][0].b.text)}</p><div class="form-field"><label>如何处理</label><select name="choice-${i}"><option value="existing">保留已有条目</option><option value="new">用新内容替换已有条目</option><option value="both">两条都保留</option></select></div>`:'<p class="muted">将添加为新条目</p>'}</div>`).join('')}`,form=>{
+    openModal('Review batch items',`<p>${entries.length} items detected. Review similar items before saving. The selected tags will apply to the whole batch.</p>${entries.map((text,i)=>`<div class="import-review"><h3>New item ${i+1}</h3><p>${esc(text)}</p>${matches[i].length?`<p class="error-text">Similar to an existing item (${Math.round(matches[i][0].score*100)}%)</p><p>${esc(matches[i][0].b.text)}</p><div class="form-field"><label>How to handle</label><select name="choice-${i}"><option value="existing">Keep existing item</option><option value="new">Replace with new content</option><option value="both">Keep both</option></select></div>`:'<p class="muted">Will be added as a new item</p>'}</div>`).join('')}`,form=>{
       let added=0,replaced=0;
       entries.forEach((text,i)=>{
         const choice=matches[i].length?form.get(`choice-${i}`):'both';
-        if(choice==='existing')return;
-        if(choice==='new'){matches[i][0].b.text=text;replaced++;return;}
-        experience.bullets.push({id:uid(),text,categories:[],sources:['批量输入']});added++;
+        if(choice==='existing'){if(categories.length)matches[i][0].b.categories=categories;return;}
+        if(choice==='new'){matches[i][0].b.text=text;matches[i][0].b.categories=categories;replaced++;return;}
+        experience.bullets.push({id:uid(),text,categories:[...categories],sources:['Batch input']});added++;
       });
-      done(`已添加 ${added} 条，替换 ${replaced} 条。`);
-    },{submit:'确认添加',wide:true});
-  },{submit:'识别并核对',wide:true});
+      done(`Added ${added} items and replaced ${replaced} items.`);
+    },{submit:'Save items',wide:true});
+  },{submit:'Review items',wide:true});
 }
 
 function importModal() {
@@ -890,18 +890,13 @@ function restore() {
   },{submit:'读取备份'});
 }
 async function renderResumeCanvas() {
-  const page=document.querySelector('#resume-preview');
-  if(!page)throw new Error('找不到简历预览。');
-  const css=await fetch('./resume.css?v=20261118-2').then(response=>response.text());
-  const pageHeight=draft().autoFit?1056:Math.max(1056,page.scrollHeight);
-  const markup=`<div xmlns="http://www.w3.org/1999/xhtml" class="${esc(page.className)}" style="--resume-font:${ui.font||draft().fontSize}px;--resume-line-height:${ui.lineHeight??draft().lineHeight??1.16};width:816px;height:${pageHeight}px;overflow:hidden"><style>${css}</style>${resumeMarkup()}</div>`;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="816" height="${pageHeight}" viewBox="0 0 816 ${pageHeight}"><foreignObject width="816" height="${pageHeight}">${markup}</foreignObject></svg>`;
-  const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
-  try {
-    const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('无法生成简历图片，请使用打印导出。'));img.src=url;});
-    const canvas=document.createElement('canvas'),scale=2;canvas.width=816*scale;canvas.height=pageHeight*scale;
-    const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);return canvas;
-  } finally {URL.revokeObjectURL(url);}
+  if(!window.html2canvas)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/html2canvas/html2canvas.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('Could not load the image renderer.'));document.head.append(script);});
+  const page=document.querySelector('#resume-preview');if(!page)throw new Error('Resume preview is unavailable.');
+  const wrapper=document.createElement('div'),clone=page.cloneNode(true);wrapper.style.cssText='position:fixed;left:-10000px;top:0;width:816px;background:#fff;z-index:-1;';
+  clone.removeAttribute('id');clone.querySelectorAll('.preview-active').forEach(element=>element.classList.remove('preview-active'));clone.style.cssText=`width:816px;height:${draft().autoFit?'1056px':'auto'};min-height:1056px;max-height:none;overflow:visible;position:relative;left:0;top:0;transform:none;box-shadow:none;`;
+  wrapper.append(clone);document.body.append(wrapper);
+  try{await document.fonts.ready;const height=draft().autoFit?1056:Math.max(1056,clone.scrollHeight);return await window.html2canvas(clone,{backgroundColor:'#fff',scale:2,width:816,height,windowWidth:816,logging:false,useCORS:true});}
+  finally{wrapper.remove();}
 }
 function canvasBlob(canvas,type,quality){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('无法生成图片文件。')),type,quality));}
 
@@ -938,25 +933,34 @@ async function downloadWord(){
   const files=[{name:'[Content_Types].xml',data:contentTypes},{name:'_rels/.rels',data:packageRels},{name:'word/document.xml',data:documentXml},{name:'word/_rels/document.xml.rels',data:wordRels},...images.map((data,i)=>({name:`word/media/page-${i+1}.png`,data}))];
   download(new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}),exportFilename('docx'));
 }
+async function downloadTextPdfFallback(){
+  const page=document.querySelector('#resume-preview'),rect=page.getBoundingClientRect(),scale=rect.width/816,pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter',compress:true});
+  let lastPage=0;const ensure=pageIndex=>{while(lastPage<pageIndex){pdf.addPage();lastPage++;}pdf.setPage(pageIndex+1);};
+  const response=await fetch('./vendor/fonts/NotoSans-Regular.ttf');if(!response.ok)throw new Error('Could not load the PDF font.');
+  const bytes=new Uint8Array(await response.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));pdf.addFileToVFS('NotoSans.ttf',btoa(binary));pdf.addFont('NotoSans.ttf','NotoSans','normal');
+  const walker=document.createTreeWalker(page,NodeFilter.SHOW_TEXT);let node;
+  while((node=walker.nextNode())){
+    const parent=node.parentElement;if(!parent||!node.nodeValue.trim())continue;const style=getComputedStyle(parent),lines=new Map(),pattern=/\S+/gu;let match;
+    while((match=pattern.exec(node.nodeValue))){const range=document.createRange();range.setStart(node,match.index);range.setEnd(node,match.index+match[0].length);const bounds=range.getBoundingClientRect();if(!bounds.width)continue;const key=Math.round(bounds.top*2)/2;if(!lines.has(key))lines.set(key,[]);lines.get(key).push({text:match[0],bounds});}
+    for(const [top,words] of lines){const relativeTop=(top-rect.top)/scale,pageIndex=Math.max(0,Math.floor(relativeTop/1056)),size=parseFloat(style.fontSize),color=style.color.match(/[\d.]+/g)||[0,0,0],bold=Number(style.fontWeight)>=600,italic=style.fontStyle==='italic',latin=/^[\x20-\x7e\u00a0-\u00ff\u2010-\u2026]*$/.test(words.map(w=>w.text).join(' ')),family=/Arial|sans-serif/i.test(style.fontFamily)?'helvetica':'times';ensure(pageIndex);pdf.setFont(latin?family:'NotoSans',latin?(bold&&italic?'bolditalic':bold?'bold':italic?'italic':'normal'):'normal');pdf.setFontSize(size*.75);pdf.setTextColor(Number(color[0]),Number(color[1]),Number(color[2]));pdf.text(words.map(w=>w.text).join(' '),(words[0].bounds.left-rect.left)/scale*.75,((relativeTop-pageIndex*1056)+size*.86)*.75);}
+  }
+  pdf.save(exportFilename('pdf'));
+}
 async function downloadTextPdf() {
   if(!window.jspdf)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/jspdf/jspdf.umd.min.js';script.onload=resolve;script.onerror=()=>reject(new Error('Could not load the PDF exporter.'));document.head.append(script);});
   await document.fonts.ready;refreshPreview();
   if(draft().autoFit&&!ui.fits)throw new Error('Content exceeds one page. Reduce content before exporting.');
-  const page=document.querySelector('#resume-preview'),rect=page.getBoundingClientRect(),scale=rect.width/816;
-  const response=await fetch('./vendor/fonts/NotoSans-Regular.ttf');if(!response.ok)throw new Error('Could not load the PDF font.');
-  const bytes=new Uint8Array(await response.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
-  const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter',compress:true});
-  let lastPdfPage=0;const ensurePdfPage=pageIndex=>{while(lastPdfPage<pageIndex){pdf.addPage();lastPdfPage++;}pdf.setPage(pageIndex+1);};pdf.addFileToVFS('NotoSans.ttf',btoa(binary));pdf.addFont('NotoSans.ttf','NotoSans','normal');pdf.setFont('NotoSans');
-  const walker=document.createTreeWalker(page,NodeFilter.SHOW_TEXT);let node;
-  while((node=walker.nextNode())){
-    const parent=node.parentElement;if(!parent || !node.nodeValue.trim())continue;
-    const style=getComputedStyle(parent),size=parseFloat(style.fontSize),color=style.color.match(/[\d.]+/g)||[0,0,0],bold=Number(style.fontWeight)>=600,italic=style.fontStyle==='italic';pdf.setFontSize(size*.75);pdf.setTextColor(Number(color[0]),Number(color[1]),Number(color[2]));
-    const pattern=/\S+/gu;let match;while((match=pattern.exec(node.nodeValue))){const range=document.createRange();range.setStart(node,match.index);range.setEnd(node,match.index+match[0].length);const bounds=range.getBoundingClientRect();if(!bounds.width)continue;const text=style.textTransform==='uppercase'?match[0].toLocaleUpperCase():match[0];const latin=/^[\x20-\x7e\u00a0-\u00ff\u2010-\u2026]*$/.test(text);const family=/Arial|sans-serif/i.test(style.fontFamily)?'helvetica':'times';pdf.setFont(latin?family:'NotoSans',latin?(bold&&italic?'bolditalic':bold?'bold':italic?'italic':'normal'):'normal');const targetWidth=bounds.width/scale*.75,actualWidth=pdf.getTextWidth(text);const factor=actualWidth?targetWidth/actualWidth:1;const relativeTop=(bounds.top-rect.top)/scale,pageIndex=Math.max(0,Math.floor(relativeTop/1056));ensurePdfPage(pageIndex);pdf.text(text+' ',(bounds.left-rect.left)/scale*.75,((relativeTop-pageIndex*1056)+size*.86)*.75,{horizontalScale:factor});}
-  }
-  pdf.setFont('NotoSans','normal');
-  for(const li of page.querySelectorAll('.resume-bullets li:not(.resume-plain-item)')){const bounds=li.getBoundingClientRect(),size=parseFloat(getComputedStyle(li).fontSize),relativeTop=(bounds.top-rect.top)/scale,pageIndex=Math.max(0,Math.floor(relativeTop/1056));ensurePdfPage(pageIndex);pdf.setFontSize(size*.75);pdf.setTextColor(0,0,0);pdf.text('•',(bounds.left-rect.left)/scale*.75-8,((relativeTop-pageIndex*1056)+size*.86)*.75);}
-  const header=page.querySelector('.resume-header');if(header){const bounds=header.getBoundingClientRect(),color=getComputedStyle(header).borderBottomColor.match(/[\d.]+/g)||[0,0,0];pdf.setDrawColor(Number(color[0]),Number(color[1]),Number(color[2]));pdf.setLineWidth(.75);pdf.line((bounds.left-rect.left)/scale*.75,(bounds.bottom-rect.top)/scale*.75,(bounds.right-rect.left)/scale*.75,(bounds.bottom-rect.top)/scale*.75);}
-  pdf.save(exportFilename('pdf'));
+  try{
+    const canvas=await renderResumeCanvas(),pagePixels=2112,pageCount=Math.max(1,Math.ceil(canvas.height/pagePixels));
+    const pdf=new window.jspdf.jsPDF({unit:'pt',format:'letter',compress:true});
+    for(let index=0;index<pageCount;index++){
+      if(index)pdf.addPage();
+      const page=document.createElement('canvas');page.width=canvas.width;page.height=pagePixels;
+      const context=page.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,page.width,page.height);context.drawImage(canvas,0,index*pagePixels,page.width,pagePixels,0,0,page.width,page.height);
+      pdf.addImage(page.toDataURL('image/png'),'PNG',0,0,612,792,undefined,'FAST');
+    }
+    pdf.save(exportFilename('pdf'));
+  }catch(imageError){await downloadTextPdfFallback();}
 }
 function exportModal() {
   refreshPreview();
@@ -964,12 +968,12 @@ function exportModal() {
   openModal('Export resume','<p>Download your resume as a PDF, Word document, or JPEG.</p><div class="export-buttons"><button type="button" class="primary" id="export-pdf">Download PDF</button><button type="button" id="export-word">Download Word (.docx)</button><button type="button" id="export-jpg">Download JPEG</button></div><button type="button" class="quiet small" id="print-resume">Use print dialog</button>',null);
   modal.querySelector('#export-pdf').onclick=async()=>{const button=modal.querySelector('#export-pdf');button.disabled=true;try{await downloadTextPdf();modal.close();toast('PDF downloaded.');}catch(error){button.disabled=false;toast(error.message||'Could not export PDF.');}};
   modal.querySelector('#print-resume').onclick=()=>{modal.close();requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));};
-  modal.querySelector('#export-word').onclick=async()=>{const button=modal.querySelector('#export-word');button.disabled=true;try{await downloadWord();modal.close();toast('Word document downloaded with PDF-style layout.');}catch(error){button.disabled=false;toast(error.message||'Could not export the Word document.');}};
-  modal.querySelector('#export-jpg').onclick=async()=>{const button=modal.querySelector('#export-jpg');button.disabled=true;try{const canvas=await renderResumeCanvas();download(await canvasBlob(canvas,'image/jpeg',.95),exportFilename('jpg'));modal.close();toast('JPEG downloaded.');}catch(error){button.disabled=false;toast('Image export is unavailable in this browser. Try Chrome or Edge.');}};
+  modal.querySelector('#export-word').onclick=async()=>{const button=modal.querySelector('#export-word');button.disabled=true;try{await downloadWord();modal.close();toast('Word document downloaded with PDF-style layout.');}catch(error){button.disabled=false;toast(error.message||'Could not export the Word document. Try Chrome or Edge.');}};
+  modal.querySelector('#export-jpg').onclick=async()=>{const button=modal.querySelector('#export-jpg');button.disabled=true;try{const canvas=await renderResumeCanvas();download(await canvasBlob(canvas,'image/jpeg',.95),exportFilename('jpg'));modal.close();toast('JPEG downloaded.');}catch(error){button.disabled=false;toast('This browser could not render the resume image. Try Chrome or Edge or use PDF export.');}};
 }
 
 app.addEventListener('toggle',event=>{const entry=event.target.closest?.('details[data-other-entry]');if(!entry)return;if(entry.open)ui.openOtherEntries.add(entry.dataset.otherEntry);else ui.openOtherEntries.delete(entry.dataset.otherEntry);},true);
-app.addEventListener('submit',event=>{if(event.target.id!=='preview-edit-form')return;event.preventDefault();const f=new FormData(event.target),t=ui.previewTarget,d=draft();if(t.kind==='bullet'){d.overrides[t.id]=String(f.get('text')).trim();}else if(t.kind==='experience'){d.metaOverrides[t.id]=Object.fromEntries(['role','company','dates'].map(k=>[k,String(f.get(k)).trim()]));const e=langData().experiences.find(x=>x.id===t.id);if(e)for(const item of readNewEntryItems(f)){const bullet={id:uid(),...item,categories:[],sources:['Manual entry']};e.bullets.push(bullet);d.selected.push(bullet.id);}}else if(t.kind==='newProject'){const role=String(f.get('role')||'').trim(),company=String(f.get('company')||'').trim(),dates=String(f.get('dates')||'').trim(),items=readNewEntryItems(f);if(!role&&!company&&!dates&&!items.length){toast('Enter a title, organization, date, or item.');return;}const id=uid(),bullets=items.map(item=>({id:uid(),...item,categories:[],sources:['Manual entry']}));const entry={id,role,company,dates,section:t.sectionId,alternatives:[],bullets};langData().experiences.push(entry);for(const item of langData().drafts)item.order.push(id);d.selected.push(...bullets.map(b=>b.id));if(!bullets.length){d.selectedExperiences ||= [];d.selectedExperiences.push(id);}d.hiddenSections=(d.hiddenSections||[]).filter(x=>x!==t.sectionId);ui.previewTarget={kind:'experience',id};}else if(t.kind==='personal'){d.personalOverride={...(d.personalOverride||{}),...Object.fromEntries(['name','phone','email','location','other'].map(k=>[k,String(f.get(k)).trim()]))};}else if(t.kind==='education'){d.educationOverride=clone(d.educationOverride??langData().profile.education);const e=d.educationOverride.find(x=>x.id===t.id);if(e){for(const k of ['school','degree','dates'])e[k]=String(f.get(k)).trim();const items=readNewEntryItems(f);if(items.length){const entry={id:uid(),role:e.school,company:e.degree,dates:e.dates,section:'education',alternatives:[],bullets:items.map(item=>({id:uid(),...item,categories:[],sources:['Manual entry']}))};langData().experiences.push(entry);d.order.push(entry.id);d.selected.push(...entry.bullets.map(b=>b.id));d.educationOverride=d.educationOverride.filter(item=>item.id!==e.id);ui.previewTarget={kind:'experience',id:entry.id};}}}else if(t.kind==='section'){
+app.addEventListener('submit',event=>{if(event.target.id!=='preview-edit-form')return;event.preventDefault();const f=new FormData(event.target),t=ui.previewTarget,d=draft();if(t.kind==='bullet'){const bullet=langData().experiences.flatMap(e=>e.bullets).find(b=>b.id===t.id);if(bullet){bullet.text=String(f.get('text')).trim();delete d.overrides[t.id];}}else if(t.kind==='experience'){const fields=Object.fromEntries(['role','company','dates'].map(k=>[k,String(f.get(k)).trim()]));const e=langData().experiences.find(x=>x.id===t.id);if(e)Object.assign(e,fields);delete d.metaOverrides[t.id];if(e)for(const item of readNewEntryItems(f)){const bullet={id:uid(),...item,categories:[],sources:['Manual entry']};e.bullets.push(bullet);d.selected.push(bullet.id);}}else if(t.kind==='newProject'){const role=String(f.get('role')||'').trim(),company=String(f.get('company')||'').trim(),dates=String(f.get('dates')||'').trim(),items=readNewEntryItems(f);if(!role&&!company&&!dates&&!items.length){toast('Enter a title, organization, date, or item.');return;}const id=uid(),bullets=items.map(item=>({id:uid(),...item,categories:[],sources:['Manual entry']}));const entry={id,role,company,dates,section:t.sectionId,alternatives:[],bullets};langData().experiences.push(entry);for(const item of langData().drafts)item.order.push(id);d.selected.push(...bullets.map(b=>b.id));if(!bullets.length){d.selectedExperiences ||= [];d.selectedExperiences.push(id);}d.hiddenSections=(d.hiddenSections||[]).filter(x=>x!==t.sectionId);ui.previewTarget={kind:'experience',id};}else if(t.kind==='personal'){d.personalOverride={...(d.personalOverride||{}),...Object.fromEntries(['name','phone','email','location','other'].map(k=>[k,String(f.get(k)).trim()]))};}else if(t.kind==='education'){d.educationOverride=clone(d.educationOverride??langData().profile.education);const e=d.educationOverride.find(x=>x.id===t.id);if(e){for(const k of ['school','degree','dates'])e[k]=String(f.get(k)).trim();const items=readNewEntryItems(f);if(items.length){const entry={id:uid(),role:e.school,company:e.degree,dates:e.dates,section:'education',alternatives:[],bullets:items.map(item=>({id:uid(),...item,categories:[],sources:['Manual entry']}))};langData().experiences.push(entry);d.order.push(entry.id);d.selected.push(...entry.bullets.map(b=>b.id));d.educationOverride=d.educationOverride.filter(item=>item.id!==e.id);ui.previewTarget={kind:'experience',id:entry.id};}}}else if(t.kind==='section'){
     if(['education','experience'].includes(t.id))for(const text of f.getAll('new-section-item').map(v=>String(v).trim()).filter(Boolean)){const entry={id:uid(),role:'',company:'',dates:'',section:t.id,alternatives:[],bullets:[{id:uid(),text,kind:'text',categories:[],sources:['Manual entry']}]};langData().experiences.push(entry);d.order.push(entry.id);d.selected.push(entry.bullets[0].id);}
     if(t.id==='education'){d.educationOverride=f.getAll('education-id').map(id=>({id,...Object.fromEntries(['school','degree','dates'].map(k=>[k,String(f.get(`education-${k}-${id}`)||'').trim()]))})).filter(e=>e.school||e.degree||e.dates);d.educationOrder=d.educationOverride.map(e=>e.id);}
     else if(t.id==='certificates'){d.certificateOverride=[...f.getAll('certificate-item').map(v=>String(v).trim()),...f.getAll('new-section-item').map(v=>String(v).trim())].filter(Boolean).join('\n');d.certificateOrder=undefined;}
